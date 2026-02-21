@@ -54,9 +54,9 @@ export default async function handler(req, res) {
       const memberId = TEAM_MAP[ownerId];
       if (!memberId) continue;
 
-      const dateMs = parseInt(deal.properties.date_de_paiement);
-      const date = new Date(dateMs);
-      const dateStr = `${String(date.getDate()).padStart(2,"0")}/${String(date.getMonth()+1).padStart(2,"0")}/${date.getFullYear()}`;
+      const rawDate = deal.properties.date_de_paiement || "";
+      const [y2, m2, d2] = rawDate.split("-");
+      const dateStr = d2 && m2 && y2 ? `${d2}/${m2}/${y2}` : "—";
 
       members[memberId].push({
         name:   deal.properties.dealname,
