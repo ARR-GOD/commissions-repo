@@ -60,7 +60,7 @@ export default async function handler(req, res) {
 
       members[memberId].push({
         name:   deal.properties.dealname,
-        amount: parseFloat(deal.properties.mrr) || 0,
+        amount: parseFloat(deal.properties.amount) || 0,
         date:   dateStr,
       });
     }
