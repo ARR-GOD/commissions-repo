@@ -2,8 +2,8 @@ import { useState } from "react";
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────
 const PASSWORD = "loyoly2026";
-
-const SLACK_TEST_USER = "U0287PVJ3FF"; // Joseph (pour les tests)
+const SLACK_TEST_USER = "U0287PVJ3FF";
+const FONT = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
 const TEAM_CONFIG = [
   { id: "matthew",  name: "Matthew",  fullName: "Matthew Langewiesche",  role: "AE",           quota: 5000,  annualVariable: 40000, ownerId: "1818638834", slackId: "U06H3BW72G5" },
@@ -36,9 +36,14 @@ const HUBSPOT_DATA = {
 const eur2 = n => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 const eurR = n => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(Math.round(n));
 const pct  = n => (n * 100).toFixed(1) + "%";
-const attColor = n => n >= 1 ? "#16a34a" : n >= 0.7 ? "#d97706" : "#dc2626";
-const attBg    = n => n >= 1 ? "#f0fdf4" : n >= 0.7 ? "#fffbeb" : "#fef2f2";
-const attBorder= n => n >= 1 ? "#bbf7d0" : n >= 0.7 ? "#fde68a" : "#fecaca";
+
+const PURPLE = "#7c3aed";
+const PURPLE_LIGHT = "#ede9fe";
+const PURPLE_BORDER = "#c4b5fd";
+
+const attColor  = n => n >= 1 ? "#059669" : n >= 0.7 ? "#d97706" : "#ef4444";
+const attBg     = n => n >= 1 ? "#ecfdf5" : n >= 0.7 ? "#fffbeb" : "#fef2f2";
+const attBorder = n => n >= 1 ? "#a7f3d0" : n >= 0.7 ? "#fde68a" : "#fecaca";
 
 const MONTHS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
@@ -106,14 +111,14 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8f7f4", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Mono','Courier New',monospace" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f5f3ff 0%, #f0fdf4 50%, #faf5ff 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT }}>
       <style>{`
         @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
       `}</style>
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 11, letterSpacing: 4, color: "#9a9a9a", textTransform: "uppercase", marginBottom: 8 }}>Loyoly · Sales</div>
-        <div style={{ fontSize: 26, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>Commission Calculator</div>
-        <div style={{ fontSize: 13, color: "#9a9a9a", marginBottom: 40 }}>Accès réservé à l'équipe</div>
+      <div style={{ textAlign: "center", width: 360 }}>
+        <div style={{ width: 56, height: 56, background: PURPLE, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 24, color: "#fff", fontWeight: 700 }}>L</div>
+        <div style={{ fontSize: 28, fontWeight: 700, color: "#111827", marginBottom: 4, letterSpacing: -0.5 }}>Commissions</div>
+        <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 36 }}>Loyoly Sales Team</div>
         <div style={{ animation: shake ? "shake 0.5s ease" : "none" }}>
           <input
             type="password"
@@ -122,26 +127,33 @@ function LoginScreen({ onLogin }) {
             onKeyDown={e => e.key === "Enter" && tryLogin()}
             placeholder="Mot de passe"
             style={{
-              width: 240, padding: "12px 16px", fontSize: 14,
-              border: `1.5px solid ${error ? "#dc2626" : "#e2e2e2"}`,
-              borderRadius: 8, outline: "none", fontFamily: "inherit",
-              background: "#fff", color: "#1a1a1a", textAlign: "center",
-              display: "block", marginBottom: 12,
-              transition: "border-color 0.2s",
+              width: "100%", padding: "14px 18px", fontSize: 15,
+              border: `2px solid ${error ? "#ef4444" : "#e5e7eb"}`,
+              borderRadius: 12, outline: "none", fontFamily: FONT,
+              background: "#fff", color: "#111827",
+              transition: "border-color 0.2s, box-shadow 0.2s",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
             }}
+            onFocus={e => { e.target.style.borderColor = PURPLE; e.target.style.boxShadow = `0 0 0 3px ${PURPLE}20`; }}
+            onBlur={e => { e.target.style.borderColor = error ? "#ef4444" : "#e5e7eb"; e.target.style.boxShadow = "0 1px 2px rgba(0,0,0,0.05)"; }}
             autoFocus
           />
           <button
             onClick={tryLogin}
             style={{
-              width: 272, padding: "12px 0", background: "#1a1a1a", border: "none",
-              borderRadius: 8, color: "#fff", fontSize: 14, fontWeight: 600,
-              cursor: "pointer", fontFamily: "inherit", letterSpacing: 0.5,
+              width: "100%", padding: "14px 0", marginTop: 12,
+              background: PURPLE, border: "none",
+              borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 600,
+              cursor: "pointer", fontFamily: FONT,
+              boxShadow: `0 4px 14px ${PURPLE}40`,
+              transition: "transform 0.1s, box-shadow 0.1s",
             }}
+            onMouseDown={e => { e.currentTarget.style.transform = "scale(0.98)"; }}
+            onMouseUp={e => { e.currentTarget.style.transform = "scale(1)"; }}
           >
-            Accéder →
+            Se connecter
           </button>
-          {error && <div style={{ marginTop: 10, fontSize: 12, color: "#dc2626" }}>Mot de passe incorrect</div>}
+          {error && <div style={{ marginTop: 12, fontSize: 13, color: "#ef4444", fontWeight: 500 }}>Mot de passe incorrect</div>}
         </div>
       </div>
     </div>
@@ -154,57 +166,68 @@ function MemberCard({ member }) {
   const bg     = attBg(member.att);
   const border = attBorder(member.att);
   return (
-    <div style={{ background: "#fff", border: "1.5px solid #e8e8e8", borderTop: `3px solid ${color}`, borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+    <div style={{
+      background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16,
+      padding: "22px 24px", transition: "box-shadow 0.2s, transform 0.2s",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+    }}
+    onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.08)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+    onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; e.currentTarget.style.transform = "translateY(0)"; }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div style={{ fontSize: 10, letterSpacing: 3, color: "#9a9a9a", textTransform: "uppercase", marginBottom: 3 }}>{member.role}</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#1a1a1a" }}>{member.name}</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: PURPLE, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>{member.role}</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", letterSpacing: -0.3 }}>{member.name}</div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 30, fontWeight: 700, color: "#1a1a1a", lineHeight: 1 }}>{eurR(member.commission)}</div>
-          <div style={{ fontSize: 11, color: "#9a9a9a", marginTop: 3 }}>commission</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#111827", lineHeight: 1, letterSpacing: -0.5 }}>{eurR(member.commission)}</div>
+          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4, fontWeight: 500 }}>commission</div>
         </div>
       </div>
-      <div style={{ marginTop: 14, height: 4, background: "#f0f0f0", borderRadius: 2 }}>
-        <div style={{ height: 4, background: color, borderRadius: 2, width: `${Math.min(member.att*100,100)}%`, transition: "width 0.6s" }} />
+      <div style={{ marginTop: 16, height: 6, background: "#f3f4f6", borderRadius: 3, overflow: "hidden" }}>
+        <div style={{ height: 6, background: `linear-gradient(90deg, ${color}, ${color}cc)`, borderRadius: 3, width: `${Math.min(member.att*100,100)}%`, transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
       </div>
-      <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, background: bg, border: `1px solid ${border}`, color, padding: "3px 10px", borderRadius: 20, fontWeight: 600 }}>{pct(member.att)} atteinte</span>
-        <span style={{ fontSize: 12, color: "#6a6a6a" }}>{eur2(member.mrr)} MRR{member.isTeamQuota ? " équipe" : ""}</span>
-        <span style={{ fontSize: 12, color: "#9a9a9a" }}>quota {eurR(member.quota)}</span>
+      <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontSize: 12, background: bg, border: `1px solid ${border}`, color, padding: "4px 12px", borderRadius: 20, fontWeight: 600 }}>{pct(member.att)}</span>
+        <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>{eur2(member.mrr)} MRR{member.isTeamQuota ? " equipe" : ""}</span>
+        <span style={{ fontSize: 12, color: "#9ca3af" }}>/ {eurR(member.quota)}</span>
       </div>
     </div>
   );
 }
 
 // ─── DEALS TABLE ──────────────────────────────────────────────────────────
-const TH = { padding: "10px 16px", textAlign: "left", fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", color: "#9a9a9a", fontWeight: 500, borderBottom: "1.5px solid #f0f0f0", whiteSpace: "nowrap", background: "#fafafa" };
-const TD = { padding: "10px 16px", fontSize: 13, color: "#3a3a3a", borderBottom: "1px solid #f4f4f4", verticalAlign: "middle" };
+const TH = { padding: "12px 18px", textAlign: "left", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#9ca3af", fontWeight: 600, borderBottom: "1px solid #f3f4f6", whiteSpace: "nowrap", background: "#fafafa" };
+const TD = { padding: "12px 18px", fontSize: 14, color: "#374151", borderBottom: "1px solid #f9fafb", verticalAlign: "middle" };
 
 function DealsTable({ members }) {
   const aeMembers = members.filter(m => !m.isTeamQuota);
   const raphael   = members.find(m => m.isTeamQuota);
   const tabs = [...aeMembers.map(m => ({ id: m.id, label: m.name, type: "ae", member: m })),
-                 { id: "raphael", label: "Raphaël", type: "team", member: raphael, aeMembers }];
+                 { id: "raphael", label: "Raphael", type: "team", member: raphael, aeMembers }];
   const [activeTab, setActiveTab] = useState(tabs[0].id);
   const active = tabs.find(t => t.id === activeTab);
 
   return (
-    <div style={{ background: "#fff", border: "1.5px solid #e8e8e8", borderRadius: 12, overflow: "hidden", marginTop: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-      <div style={{ display: "flex", borderBottom: "1.5px solid #f0f0f0", padding: "0 8px", background: "#fafafa" }}>
+    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, overflow: "hidden", marginTop: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      <div style={{ display: "flex", borderBottom: "1px solid #f3f4f6", padding: "0 12px", background: "#fafafa" }}>
         {tabs.map(t => {
           const isActive = t.id === activeTab;
-          const color = attColor(t.member.att);
           return (
             <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-              padding: "12px 18px", background: "none", border: "none",
-              borderBottom: isActive ? `2px solid ${color}` : "2px solid transparent",
-              color: isActive ? "#1a1a1a" : "#9a9a9a", fontSize: 13,
-              fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: "inherit",
-              display: "flex", alignItems: "center", gap: 8, marginBottom: -1.5,
+              padding: "14px 18px", background: "none", border: "none",
+              borderBottom: isActive ? `2px solid ${PURPLE}` : "2px solid transparent",
+              color: isActive ? "#111827" : "#9ca3af", fontSize: 14,
+              fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: FONT,
+              display: "flex", alignItems: "center", gap: 8, marginBottom: -1,
+              transition: "color 0.15s",
             }}>
               {t.label}
-              <span style={{ fontSize: 11, background: isActive ? color+"18" : "#f0f0f0", color: isActive ? color : "#9a9a9a", padding: "2px 7px", borderRadius: 10, fontWeight: 600 }}>
+              <span style={{
+                fontSize: 12, padding: "2px 10px", borderRadius: 20, fontWeight: 600,
+                background: isActive ? PURPLE_LIGHT : "#f3f4f6",
+                color: isActive ? PURPLE : "#9ca3af",
+              }}>
                 {eur2(t.member.mrr)}
               </span>
             </button>
@@ -216,45 +239,45 @@ function DealsTable({ members }) {
           <tr>
             {active.type === "ae"
               ? <><th style={TH}>Deal</th><th style={TH}>Date paiement</th><th style={{...TH,textAlign:"right"}}>Montant MRR</th><th style={{...TH,textAlign:"right"}}>% quota</th></>
-              : <><th style={TH}>AE</th><th style={TH}>Deals</th><th style={{...TH,textAlign:"right"}}>MRR généré</th><th style={{...TH,textAlign:"right"}}>Atteinte</th></>
+              : <><th style={TH}>AE</th><th style={TH}>Deals</th><th style={{...TH,textAlign:"right"}}>MRR genere</th><th style={{...TH,textAlign:"right"}}>Atteinte</th></>
             }
           </tr>
         </thead>
         <tbody>
           {active.type === "ae" ? (
             active.member.deals.length === 0
-              ? <tr><td colSpan={4} style={{...TD,color:"#c0c0c0",fontStyle:"italic",textAlign:"center",padding:"32px"}}>Aucun deal ce mois-ci</td></tr>
+              ? <tr><td colSpan={4} style={{...TD,color:"#d1d5db",fontStyle:"italic",textAlign:"center",padding:"40px",fontSize:14}}>Aucun deal ce mois-ci</td></tr>
               : <>
                   {active.member.deals.map((d,i) => (
                     <tr key={i} style={{ transition: "background 0.15s" }} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                      <td style={{...TD,color:"#1a1a1a",fontWeight:500}}>{d.name}</td>
-                      <td style={{...TD,color:"#6a6a6a"}}>{d.date}</td>
-                      <td style={{...TD,textAlign:"right",color:"#16a34a",fontWeight:600}}>{eur2(d.amount)}</td>
-                      <td style={{...TD,textAlign:"right",color:"#9a9a9a"}}>{pct(d.amount/active.member.quota)}</td>
+                      <td style={{...TD,color:"#111827",fontWeight:500}}>{d.name}</td>
+                      <td style={{...TD,color:"#6b7280"}}>{d.date}</td>
+                      <td style={{...TD,textAlign:"right",color:"#059669",fontWeight:600}}>{eur2(d.amount)}</td>
+                      <td style={{...TD,textAlign:"right",color:"#9ca3af"}}>{pct(d.amount/active.member.quota)}</td>
                     </tr>
                   ))}
                   <tr style={{background:"#fafafa"}}>
-                    <td style={{...TD,color:"#1a1a1a",fontWeight:700,borderTop:"1.5px solid #e8e8e8",borderBottom:"none"}}>Total</td>
-                    <td style={{...TD,borderTop:"1.5px solid #e8e8e8",borderBottom:"none"}}></td>
-                    <td style={{...TD,textAlign:"right",color:"#1a1a1a",fontWeight:700,borderTop:"1.5px solid #e8e8e8",borderBottom:"none"}}>{eur2(active.member.mrr)}</td>
-                    <td style={{...TD,textAlign:"right",color:attColor(active.member.att),fontWeight:700,borderTop:"1.5px solid #e8e8e8",borderBottom:"none"}}>{pct(active.member.att)}</td>
+                    <td style={{...TD,color:"#111827",fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>Total</td>
+                    <td style={{...TD,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}></td>
+                    <td style={{...TD,textAlign:"right",color:"#111827",fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>{eur2(active.member.mrr)}</td>
+                    <td style={{...TD,textAlign:"right",color:attColor(active.member.att),fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>{pct(active.member.att)}</td>
                   </tr>
                 </>
           ) : (
             <>
               {active.aeMembers.map((m,i) => (
                 <tr key={i} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                  <td style={{...TD,color:"#1a1a1a",fontWeight:500}}>{m.name}</td>
-                  <td style={{...TD,color:"#6a6a6a"}}>{m.deals.length} deal{m.deals.length>1?"s":""}</td>
-                  <td style={{...TD,textAlign:"right",color:"#16a34a",fontWeight:600}}>{eur2(m.mrr)}</td>
+                  <td style={{...TD,color:"#111827",fontWeight:500}}>{m.name}</td>
+                  <td style={{...TD,color:"#6b7280"}}>{m.deals.length} deal{m.deals.length>1?"s":""}</td>
+                  <td style={{...TD,textAlign:"right",color:"#059669",fontWeight:600}}>{eur2(m.mrr)}</td>
                   <td style={{...TD,textAlign:"right",color:attColor(m.att)}}>{pct(m.att)}</td>
                 </tr>
               ))}
               <tr style={{background:"#fafafa"}}>
-                <td style={{...TD,color:"#1a1a1a",fontWeight:700,borderTop:"1.5px solid #e8e8e8",borderBottom:"none"}}>Total équipe</td>
-                <td style={{...TD,borderTop:"1.5px solid #e8e8e8",borderBottom:"none"}}></td>
-                <td style={{...TD,textAlign:"right",color:"#1a1a1a",fontWeight:700,borderTop:"1.5px solid #e8e8e8",borderBottom:"none"}}>{eur2(active.member.mrr)}</td>
-                <td style={{...TD,textAlign:"right",color:attColor(active.member.att),fontWeight:700,borderTop:"1.5px solid #e8e8e8",borderBottom:"none"}}>{pct(active.member.att)}</td>
+                <td style={{...TD,color:"#111827",fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>Total equipe</td>
+                <td style={{...TD,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}></td>
+                <td style={{...TD,textAlign:"right",color:"#111827",fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>{eur2(active.member.mrr)}</td>
+                <td style={{...TD,textAlign:"right",color:attColor(active.member.att),fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>{pct(active.member.att)}</td>
               </tr>
             </>
           )}
@@ -269,18 +292,22 @@ function PayfitBlock({ members }) {
   const [copied, setCopied] = useState(false);
   const text = members.map(m => `${m.name} : ${eurR(m.commission)}`).join("\n");
   return (
-    <div style={{ background: "#fff", border: "1.5px solid #e8e8e8", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: "#9a9a9a", textTransform: "uppercase", fontWeight: 500 }}>À saisir dans Payfit</div>
-        <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }} style={{ padding: "5px 12px", background: copied?"#f0fdf4":"transparent", border: `1px solid ${copied?"#16a34a":"#e2e2e2"}`, borderRadius: 6, color: copied?"#16a34a":"#6a6a6a", fontSize: 11, cursor: "pointer", fontFamily: "inherit", letterSpacing: 1, textTransform: "uppercase", fontWeight: 500 }}>
-          {copied ? "✓ Copié" : "Copier"}
+    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: "22px 24px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1 }}>Payfit</div>
+        <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }} style={{
+          padding: "6px 14px", background: copied ? "#ecfdf5" : "#fff", border: `1px solid ${copied ? "#a7f3d0" : "#e5e7eb"}`,
+          borderRadius: 8, color: copied ? "#059669" : "#6b7280", fontSize: 12, cursor: "pointer", fontFamily: FONT, fontWeight: 600,
+          transition: "all 0.2s",
+        }}>
+          {copied ? "Copie !" : "Copier"}
         </button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         {members.map(m => (
-          <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fafafa", border: "1px solid #f0f0f0", borderRadius: 8, padding: "12px 16px" }}>
-            <span style={{ fontSize: 13, color: "#6a6a6a" }}>{m.name}</span>
-            <span style={{ fontSize: 17, fontWeight: 700, color: "#1a1a1a" }}>{eurR(m.commission)}</span>
+          <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 10, padding: "14px 16px" }}>
+            <span style={{ fontSize: 14, color: "#6b7280" }}>{m.name}</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>{eurR(m.commission)}</span>
           </div>
         ))}
       </div>
@@ -288,92 +315,143 @@ function PayfitBlock({ members }) {
   );
 }
 
-// ─── SLACK MODAL ──────────────────────────────────────────────────────────
-function SlackModal({ members, salaryYear, salaryMonth, onClose, onSend }) {
-  const [sending, setSending] = useState(false);
-  const [done, setDone]       = useState(false);
-  const [error, setError]     = useState(null);
-  const [target, setTarget]   = useState("me");
+// ─── SLACK SECTION (per-rep) ──────────────────────────────────────────────
+function SlackSection({ members, salaryYear, salaryMonth, onSendOne }) {
   const aeMembers = members.filter(m => !m.isTeamQuota);
-
   const previews = members.map(m => ({
     ...m,
     msg: slackMsg(m, salaryYear, salaryMonth, aeMembers)
   }));
 
-  const handleSend = async () => {
+  return (
+    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: "22px 24px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", marginTop: 20 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>
+        Messages Slack
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {previews.map(m => (
+          <SlackCard key={m.id} member={m} onSendOne={onSendOne} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SlackCard({ member, onSendOne }) {
+  const [expanded, setExpanded] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(null); // null | "team" | "test"
+  const [error, setError] = useState(null);
+
+  const doSend = async (target) => {
     setSending(true);
     setError(null);
     try {
-      await onSend(target, previews);
-      setDone(true);
-    } catch(e) {
-      setError(e.message || "Erreur lors de l'envoi");
+      await onSendOne(target, member);
+      setSent(target);
+    } catch (e) {
+      setError(e.message || "Erreur");
     }
     setSending(false);
   };
 
+  const color = attColor(member.att);
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
-      <div style={{ background: "#fff", border: "1.5px solid #e8e8e8", borderRadius: 16, width: 640, maxHeight: "88vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.15)" }}>
-        <div style={{ padding: "20px 24px", borderBottom: "1.5px solid #f0f0f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ fontSize: 10, letterSpacing: 3, color: "#9a9a9a", textTransform: "uppercase" }}>Envoi Slack</div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: "#1a1a1a", marginTop: 2 }}>
-              Récap commissions · {MONTHS_FR[salaryMonth-1]} {salaryYear}
-            </div>
+    <div style={{
+      border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden",
+      transition: "box-shadow 0.2s",
+      boxShadow: expanded ? "0 4px 12px rgba(0,0,0,0.06)" : "none",
+    }}>
+      {/* Header row */}
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "14px 18px", cursor: "pointer", background: expanded ? "#fafafa" : "#fff",
+          transition: "background 0.15s",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, background: PURPLE_LIGHT,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 14, fontWeight: 700, color: PURPLE,
+          }}>
+            {member.name.charAt(0)}
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#9a9a9a", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{member.name}</div>
+            <div style={{ fontSize: 12, color: "#9ca3af" }}>{member.role}</div>
+          </div>
         </div>
-
-        <div style={{ padding: "16px 24px", borderBottom: "1.5px solid #f0f0f0", display: "flex", gap: 10 }}>
-          {[["me", "🧪 Tester → m'envoyer à moi"], ["all", "📤 Envoyer à l'équipe"]].map(([val, label]) => (
-            <button key={val} onClick={() => setTarget(val)} style={{
-              flex: 1, padding: "10px", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600,
-              background: target === val ? (val === "all" ? "#1a1a1a" : "#f0fdf4") : "#fafafa",
-              border: `1.5px solid ${target === val ? (val === "all" ? "#1a1a1a" : "#16a34a") : "#e8e8e8"}`,
-              color: target === val ? (val === "all" ? "#fff" : "#16a34a") : "#6a6a6a",
-            }}>{label}</button>
-          ))}
-        </div>
-
-
-
-
-        <div style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
-          {previews.map(m => (
-            <div key={m.id} style={{ background: "#fafafa", border: "1px solid #f0f0f0", borderRadius: 8, padding: "14px 18px", borderLeft: "3px solid #4f46e5" }}>
-              <div style={{ fontSize: 11, color: "#9a9a9a", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontWeight: 600, color: "#4f46e5" }}>DM → {m.name}</span>
-                <span style={{ color: attColor(m.att), fontWeight: 600 }}>{eurR(m.commission)}</span>
-              </div>
-              <div style={{ fontSize: 12, color: "#6a6a6a", lineHeight: 1.6, fontFamily: "system-ui, sans-serif", whiteSpace: "pre-wrap", maxHeight: 120, overflow: "auto" }}>
-                {m.msg}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {error && <div style={{ margin: "0 24px 12px", padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 12, color: "#dc2626" }}>❌ {error}</div>}
-
-        <div style={{ padding: "0 24px 24px", display: "flex", gap: 10 }}>
-          {!done ? (
-            <button onClick={handleSend} disabled={sending} style={{
-              flex: 1, padding: "13px",
-              background: target === "all" ? "#1a1a1a" : "#16a34a",
-              border: "none", borderRadius: 8, color: "#fff", fontSize: 14, cursor: sending ? "not-allowed" : "pointer",
-              fontWeight: 700, fontFamily: "inherit", opacity: sending ? 0.7 : 1,
-            }}>
-              {sending ? "Envoi en cours..." : target === "me" ? "Envoyer à moi pour tester" : "Envoyer à l'équipe"}
-            </button>
-          ) : (
-            <div style={{ flex: 1, padding: "13px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, color: "#16a34a", fontSize: 14, fontWeight: 700, textAlign: "center" }}>
-              ✓ Messages envoyés !
-            </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>{eurR(member.commission)}</span>
+          {sent && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#059669", background: "#ecfdf5", padding: "3px 10px", borderRadius: 20 }}>
+              {sent === "test" ? "Test envoye" : "Envoye"}
+            </span>
           )}
-          <button onClick={onClose} style={{ padding: "13px 20px", background: "#fafafa", border: "1.5px solid #e8e8e8", borderRadius: 8, color: "#6a6a6a", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Fermer</button>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: expanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s", color: "#9ca3af" }}>
+            <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </div>
       </div>
+
+      {/* Expandable content */}
+      {expanded && (
+        <div style={{ borderTop: "1px solid #f3f4f6" }}>
+          {/* Message preview */}
+          <div style={{ padding: "16px 18px", background: "#f9fafb" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Apercu du message</div>
+            <div style={{
+              fontSize: 13, color: "#4b5563", lineHeight: 1.7,
+              fontFamily: "system-ui, sans-serif", whiteSpace: "pre-wrap",
+              maxHeight: 200, overflow: "auto",
+              background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
+              padding: "14px 16px",
+            }}>
+              {member.msg}
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div style={{ margin: "0 18px 12px", padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 13, color: "#ef4444" }}>
+              {error}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{ padding: "12px 18px 16px", display: "flex", gap: 8 }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); doSend("test"); }}
+              disabled={sending}
+              style={{
+                padding: "10px 18px", borderRadius: 10, cursor: sending ? "not-allowed" : "pointer",
+                fontFamily: FONT, fontSize: 13, fontWeight: 600, border: "1px solid #e5e7eb",
+                background: "#fff", color: "#6b7280",
+                opacity: sending ? 0.6 : 1, transition: "all 0.15s",
+              }}
+            >
+              {sending ? "..." : "Tester (m'envoyer)"}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); doSend("team"); }}
+              disabled={sending}
+              style={{
+                padding: "10px 18px", borderRadius: 10, cursor: sending ? "not-allowed" : "pointer",
+                fontFamily: FONT, fontSize: 13, fontWeight: 600, border: "none",
+                background: PURPLE, color: "#fff",
+                opacity: sending ? 0.6 : 1, transition: "all 0.15s",
+                boxShadow: `0 2px 8px ${PURPLE}30`,
+              }}
+            >
+              {sending ? "Envoi..." : `Envoyer a ${member.name}`}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -386,7 +464,6 @@ export default function App() {
   const [liveData,    setLiveData]   = useState({});
   const [salaryMonth, setSalaryMonth]= useState(now.getMonth() + 1);
   const [salaryYear,  setSalaryYear] = useState(now.getFullYear());
-  const [showSlack,   setShowSlack]  = useState(false);
   const [slackLog,    setSlackLog]   = useState([]);
   const [refreshing,  setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh]= useState(null);
@@ -397,7 +474,6 @@ export default function App() {
   const mergedData = { ...HUBSPOT_DATA, ...liveData };
   const members   = compute(salaryYear, salaryMonth, mergedData);
   const hasData   = !!(mergedData)[paymentKey(salaryYear, salaryMonth)];
-  const aeMembers = members.filter(m => !m.isTeamQuota);
   const payLbl    = paymentLabel(salaryYear, salaryMonth);
   const salLbl    = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
 
@@ -412,71 +488,90 @@ export default function App() {
       if (!json.ok) throw new Error(json.error || "Erreur HubSpot");
       setLiveData(prev => ({ ...prev, [key]: { members: Object.entries(json.members).map(([id, deals]) => ({ id, deals })) } }));
       setLastRefresh(new Date());
-      setFlashMsg(`✓ Données à jour · ${payLbl}`);
+      setFlashMsg(`Donnees a jour · ${payLbl}`);
     } catch(e) {
-      setFlashMsg(`⚠ ${e.message}`);
+      setFlashMsg(`${e.message}`);
     }
     setRefreshing(false);
     setTimeout(() => setFlashMsg(null), 5000);
   };
 
-  const handleSend = async (target, previews) => {
-    const msgs = target === "me"
-      ? previews.map(m => ({ slackId: SLACK_TEST_USER, text: m.msg }))
-      : previews.map(m => ({ slackId: m.slackId, text: m.msg }));
-
+  const handleSendOne = async (target, member) => {
+    const slackId = target === "test" ? SLACK_TEST_USER : member.slackId;
     const res = await fetch("/api/slack-send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: msgs }),
+      body: JSON.stringify({ messages: [{ slackId, text: member.msg }] }),
     });
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || "Erreur envoi Slack");
-    setSlackLog(prev => [...prev, { target, salLbl, sentAt: new Date().toLocaleTimeString("fr-FR") }]);
+    setSlackLog(prev => [...prev, { target, name: member.name, salLbl, sentAt: new Date().toLocaleTimeString("fr-FR") }]);
   };
 
   const years = [2025, 2026, 2027];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8f7f4", color: "#1a1a1a", fontFamily: "'DM Mono','Courier New',monospace" }}>
+    <div style={{ minHeight: "100vh", background: "#f5f5f7", color: "#111827", fontFamily: FONT }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
       {/* Header */}
-      <div style={{ background: "#fff", borderBottom: "1.5px solid #e8e8e8", padding: "18px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-        <div>
-          <div style={{ fontSize: 10, letterSpacing: 4, color: "#9a9a9a", textTransform: "uppercase", marginBottom: 3 }}>Loyoly · Sales</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#1a1a1a" }}>Commission Calculator</div>
+      <div style={{
+        background: "#fff", borderBottom: "1px solid #e5e7eb",
+        padding: "16px 32px", display: "flex", alignItems: "center", justifyContent: "space-between",
+        position: "sticky", top: 0, zIndex: 50, backdropFilter: "blur(10px)",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ width: 36, height: 36, background: PURPLE, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#fff", fontWeight: 700 }}>L</div>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#111827", letterSpacing: -0.3 }}>Commissions</div>
+            <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 500 }}>Loyoly Sales</div>
+          </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {flashMsg && (
-            <div style={{ fontSize: 12, color: flashMsg.startsWith("✓") ? "#16a34a" : "#d97706", background: flashMsg.startsWith("✓") ? "#f0fdf4" : "#fffbeb", border: `1px solid ${flashMsg.startsWith("✓") ? "#bbf7d0" : "#fde68a"}`, padding: "7px 14px", borderRadius: 8 }}>
+            <div style={{
+              fontSize: 13, fontWeight: 500, padding: "8px 16px", borderRadius: 10,
+              color: flashMsg.includes("jour") ? "#059669" : "#d97706",
+              background: flashMsg.includes("jour") ? "#ecfdf5" : "#fffbeb",
+              border: `1px solid ${flashMsg.includes("jour") ? "#a7f3d0" : "#fde68a"}`,
+            }}>
               {flashMsg}
             </div>
           )}
           {slackLog.length > 0 && (
-            <div style={{ fontSize: 11, color: "#16a34a", textAlign: "right" }}>
-              {slackLog.map((l,i) => <div key={i}>✓ Slack {l.target === "me" ? "test" : "équipe"} · {l.salLbl} · {l.sentAt}</div>)}
+            <div style={{ fontSize: 12, color: "#059669", textAlign: "right", maxWidth: 300 }}>
+              {slackLog.slice(-3).map((l,i) => <div key={i}>Slack {l.target === "test" ? "test" : l.name} · {l.sentAt}</div>)}
             </div>
           )}
           <button onClick={handleRefresh} disabled={refreshing} style={{
-            display: "flex", alignItems: "center", gap: 7,
-            padding: "8px 16px", background: "#fafafa",
-            border: "1.5px solid #e8e8e8", borderRadius: 8,
-            color: refreshing ? "#c0c0c0" : "#6a6a6a", fontSize: 13,
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "9px 18px", background: "#fff",
+            border: "1px solid #e5e7eb", borderRadius: 10,
+            color: refreshing ? "#d1d5db" : "#374151", fontSize: 14,
             cursor: refreshing ? "not-allowed" : "pointer",
-            fontFamily: "inherit", fontWeight: 500,
-          }}>
-            <span style={{ display: "inline-block", animation: refreshing ? "spin 1s linear infinite" : "none" }}>⟳</span>
-            {refreshing ? "Actualisation…" : lastRefresh ? `Actualisé ${lastRefresh.toLocaleTimeString("fr-FR", {hour:"2-digit",minute:"2-digit"})}` : "Actualiser"}
+            fontFamily: FONT, fontWeight: 500,
+            transition: "all 0.15s",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+          }}
+          onMouseEnter={e => { if (!refreshing) e.currentTarget.style.borderColor = PURPLE; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; }}
+          >
+            <span style={{ display: "inline-block", animation: refreshing ? "spin 1s linear infinite" : "none", fontSize: 16 }}>&#x21bb;</span>
+            {refreshing ? "Actualisation..." : lastRefresh ? `${lastRefresh.toLocaleTimeString("fr-FR", {hour:"2-digit",minute:"2-digit"})}` : "Actualiser"}
           </button>
         </div>
       </div>
 
-      <div style={{ padding: "28px 32px", maxWidth: 980, margin: "0 auto" }}>
+      <div style={{ padding: "28px 32px", maxWidth: 1020, margin: "0 auto" }}>
 
         {/* Period selector */}
-        <div style={{ background: "#fff", border: "1.5px solid #e8e8e8", borderRadius: 12, padding: "16px 22px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-          <div style={{ fontSize: 11, letterSpacing: 2, color: "#9a9a9a", textTransform: "uppercase", marginRight: 4 }}>Salaire de</div>
+        <div style={{
+          background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16,
+          padding: "18px 24px", marginBottom: 20, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>Salaire de</div>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {MONTHS_FR.map((m, i) => {
               const month = i + 1;
@@ -485,26 +580,29 @@ export default function App() {
               const hasD = !!HUBSPOT_DATA[key];
               return (
                 <button key={month} onClick={() => setSalaryMonth(month)} style={{
-                  padding: "5px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer", fontFamily: "inherit",
-                  background: isActive ? "#1a1a1a" : hasD ? "#f0fdf4" : "transparent",
-                  border: `1.5px solid ${isActive ? "#1a1a1a" : hasD ? "#bbf7d0" : "#e8e8e8"}`,
-                  color: isActive ? "#fff" : hasD ? "#16a34a" : "#9a9a9a",
-                  fontWeight: isActive ? 700 : 400, position: "relative",
+                  padding: "6px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer", fontFamily: FONT,
+                  background: isActive ? PURPLE : hasD ? PURPLE_LIGHT : "transparent",
+                  border: isActive ? "none" : `1px solid ${hasD ? PURPLE_BORDER : "#e5e7eb"}`,
+                  color: isActive ? "#fff" : hasD ? PURPLE : "#9ca3af",
+                  fontWeight: isActive ? 600 : 400, transition: "all 0.15s",
+                  boxShadow: isActive ? `0 2px 8px ${PURPLE}30` : "none",
                 }}>
                   {m.slice(0,3)}
-                  {hasD && !isActive && <span style={{ position: "absolute", top: 2, right: 2, width: 4, height: 4, background: "#16a34a", borderRadius: "50%", display: "block" }} />}
                 </button>
               );
             })}
           </div>
-          <select value={salaryYear} onChange={e => setSalaryYear(+e.target.value)} style={{ background: "#fafafa", border: "1.5px solid #e8e8e8", borderRadius: 6, color: "#1a1a1a", padding: "6px 12px", fontSize: 13, fontFamily: "inherit", cursor: "pointer" }}>
+          <select value={salaryYear} onChange={e => setSalaryYear(+e.target.value)} style={{
+            background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8,
+            color: "#111827", padding: "7px 14px", fontSize: 14, fontFamily: FONT, cursor: "pointer",
+          }}>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 12, color: "#9a9a9a" }}>→ Paiements {payLbl}</span>
+            <span style={{ fontSize: 13, color: "#9ca3af" }}>Paiements {payLbl}</span>
             {!hasData && (
-              <span style={{ fontSize: 11, background: "#fffbeb", border: "1px solid #fde68a", color: "#d97706", padding: "4px 10px", borderRadius: 20 }}>
-                Données non chargées
+              <span style={{ fontSize: 12, background: "#fffbeb", border: "1px solid #fde68a", color: "#d97706", padding: "4px 12px", borderRadius: 20, fontWeight: 500 }}>
+                Non charge
               </span>
             )}
           </div>
@@ -518,42 +616,21 @@ export default function App() {
         {/* Deals Table */}
         <DealsTable members={members} />
 
-        {/* Payfit + Slack */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 14, marginTop: 20, alignItems: "start" }}>
+        {/* Payfit */}
+        <div style={{ marginTop: 20 }}>
           <PayfitBlock members={members} />
-          <div style={{ background: "#fff", border: "1.5px solid #e8e8e8", borderRadius: 12, padding: "20px 24px", minWidth: 220, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-            <div style={{ fontSize: 11, letterSpacing: 2, color: "#9a9a9a", textTransform: "uppercase", marginBottom: 14 }}>Slack</div>
-            <button onClick={() => setShowSlack(true)} disabled={!hasData} style={{
-              width: "100%", padding: "12px 0",
-              background: hasData ? "#1a1a1a" : "#fafafa",
-              border: `1.5px solid ${hasData ? "#1a1a1a" : "#e8e8e8"}`,
-              borderRadius: 10, color: hasData ? "#fff" : "#c0c0c0",
-              fontSize: 14, cursor: hasData ? "pointer" : "not-allowed",
-              fontWeight: 700, fontFamily: "inherit",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            }}>
-              <span>💬</span> Envoyer récaps
-            </button>
-            <div style={{ marginTop: 10, fontSize: 11, color: "#9a9a9a", textAlign: "center" }}>
-              {hasData ? `4 messages · ${salLbl}` : "Charge d'abord les données"}
-            </div>
-          </div>
         </div>
 
-        <div style={{ marginTop: 16, padding: "12px 16px", background: "#fff", border: "1.5px solid #e8e8e8", borderRadius: 8, fontSize: 12, color: "#9a9a9a" }}>
-          💡 Pour charger un nouveau mois, demande à Claude : <span style={{ color: "#1a1a1a", fontWeight: 500 }}>"Calcule les commissions de [mois]"</span>
-        </div>
+        {/* Slack - per rep */}
+        {hasData && (
+          <SlackSection
+            members={members}
+            salaryYear={salaryYear}
+            salaryMonth={salaryMonth}
+            onSendOne={handleSendOne}
+          />
+        )}
       </div>
-
-      {showSlack && (
-        <SlackModal
-          members={members}
-          salaryYear={salaryYear}
-          salaryMonth={salaryMonth}
-          onClose={() => setShowSlack(false)}
-          onSend={handleSend}
-        />
-      )}
     </div>
   );
 }
