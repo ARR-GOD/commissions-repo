@@ -11,10 +11,10 @@ const TEAM_CONFIG = [
   { id: "francois", name: "François", fullName: "François Malo Jamin",    role: "AE",           quota: 5000,  annualVariable: 25000, ownerId: "32042772",   slackId: "U0AB464R2RK" },
   { id: "raphael",  name: "Raphaël",  fullName: "Raphaël Angelitti",      role: "Head of Sales",quota: 15000, annualVariable: 40000, ownerId: "1002574007", slackId: "U07FFGM4TUZ", isTeamQuota: true },
   // BDRs
-  { id: "sacha",    name: "Sacha",    fullName: "Sacha Fernez",           role: "BDR",          quotaSQLs: 20, annualVariable: 15000, genereParId: "1919375613", slackId: "SACHA_SLACK_ID" },
-  { id: "emilio",   name: "Emilio",   fullName: "Emilio Sallier",         role: "BDR",          quotaSQLs: 10, annualVariable: 15000, genereParId: "30082998",   slackId: "EMILIO_SLACK_ID" },
-  { id: "oscar",    name: "Oscar",    fullName: "Oscar Mcdonald",         role: "BDR",          quotaSQLs: 20, annualVariable: 18000, genereParId: "29457764",   slackId: "OSCAR_SLACK_ID" },
-  { id: "illan",    name: "Illan",    fullName: "Ilan Brillard",          role: "BDR",          quotaSQLs: 20, annualVariable: 12000, genereParId: "31730069",   slackId: "ILLAN_SLACK_ID" },
+  { id: "sacha",    name: "Sacha",    fullName: "Sacha Fernez",           role: "BDR",          quotaSQLs: 20, annualVariable: 15000, genereParId: "1919375613", slackId: "U07F2P5N5QB" },
+  { id: "emilio",   name: "Emilio",   fullName: "Emilio Sallier",         role: "BDR",          quotaSQLs: 10, annualVariable: 15000, genereParId: "30082998",   slackId: "U087CKD9VHU" },
+  { id: "oscar",    name: "Oscar",    fullName: "Oscar Mcdonald",         role: "BDR",          quotaSQLs: 20, annualVariable: 18000, genereParId: "29457764",   slackId: "U08U6SV2P9N" },
+  { id: "illan",    name: "Illan",    fullName: "Ilan Brillard",          role: "BDR",          quotaSQLs: 20, annualVariable: 12000, genereParId: "31730069",   slackId: "U0A7X8YD48Z" },
 ];
 
 // ─── DONNÉES HUBSPOT (AE) ────────────────────────────────────────────────
