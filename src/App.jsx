@@ -843,6 +843,83 @@ function KpiCard({ label, value, sub, icon, color = PURPLE }) {
   );
 }
 
+// ─── LINE CHART (multi-series) ───────────────────────────────────────────
+function LineChart({ series, labels, width = 900, height = 280, legendPosition = "top" }) {
+  // series: [{ label, color, data: [number] }]
+  // labels: x-axis labels
+  if (!series || series.length === 0 || !labels || labels.length === 0) return null;
+  const allVals = series.flatMap(s => s.data);
+  const maxVal = Math.max(...allVals, 1);
+  const padL = 60, padR = 20, padT = 30, padB = 36;
+  const chartW = width - padL - padR;
+  const chartH = height - padT - padB;
+
+  const getX = (i) => padL + (labels.length === 1 ? chartW / 2 : i * (chartW / (labels.length - 1)));
+  const getY = (v) => padT + chartH - (v / maxVal) * chartH;
+
+  return (
+    <div>
+      {legendPosition === "top" && (
+        <div style={{ display: "flex", gap: 16, marginBottom: 10 }}>
+          {series.map((s, i) => (
+            <span key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#6b7280" }}>
+              <span style={{ width: 12, height: 3, borderRadius: 2, background: s.color, display: "inline-block" }} />
+              {s.label}
+            </span>
+          ))}
+        </div>
+      )}
+      <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible" }}>
+        {/* Grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
+          <g key={i}>
+            <line x1={padL} y1={getY(maxVal * pct)} x2={width - padR} y2={getY(maxVal * pct)} stroke="#f3f4f6" strokeWidth="1" />
+            <text x={padL - 8} y={getY(maxVal * pct) + 4} fill="#d1d5db" fontSize="9" fontFamily={FONT} textAnchor="end">
+              {fmtCurrencyR(maxVal * pct)}
+            </text>
+          </g>
+        ))}
+        {/* X labels */}
+        {labels.map((l, i) => (
+          <text key={i} x={getX(i)} y={height - 6} textAnchor="middle" fill="#9ca3af" fontSize="10" fontFamily={FONT} fontWeight="500">
+            {l}
+          </text>
+        ))}
+        {/* Lines + dots */}
+        {series.map((s, si) => {
+          const points = s.data.map((v, i) => `${getX(i)},${getY(v)}`).join(" ");
+          return (
+            <g key={si}>
+              {/* Area fill */}
+              <polygon
+                points={`${getX(0)},${getY(0)} ${points} ${getX(s.data.length - 1)},${getY(0)}`}
+                fill={s.color}
+                opacity="0.06"
+              />
+              <polyline
+                points={points}
+                fill="none"
+                stroke={s.color}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {s.data.map((v, i) => (
+                <g key={i}>
+                  <circle cx={getX(i)} cy={getY(v)} r="4" fill="#fff" stroke={s.color} strokeWidth="2" />
+                  <text x={getX(i)} y={getY(v) - 10} textAnchor="middle" fill={s.color} fontSize="9" fontFamily={FONT} fontWeight="600">
+                    {fmtCurrencyR(v)}
+                  </text>
+                </g>
+              ))}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // ─── CSV EXPORT HELPER ───────────────────────────────────────────────────
 function exportCSV(members, salaryYear, periodLabel, filename) {
   const allIndividual = members.filter(m => !m.isTeamQuota);
@@ -897,7 +974,7 @@ function exportCSV(members, salaryYear, periodLabel, filename) {
 }
 
 // ─── ANALYTICS PAGE ──────────────────────────────────────────────────────
-function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData, mergedPmData, hideNames, onRefresh, refreshing }) {
+function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData, mergedPmData, closedWonData = {}, churnData = {}, hideNames, onRefresh, refreshing }) {
   const [selectedMonths, setSelectedMonths] = useState([new Date().getMonth() + 1]);
   const years = [2025, 2026, 2027];
 
@@ -1022,6 +1099,100 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
       };
     });
   }, [mergedAeData, mergedBdrData, mergedPmData]);
+
+  // ─── Closed Won MRR vs Paid MRR comparison data ────────────────────────
+  const comparisonData = useMemo(() => {
+    // For each available month key, compute paid MRR (from AE data) and closed won MRR
+    const allKeys = new Set([
+      ...Object.keys(mergedAeData || {}),
+      ...Object.keys(closedWonData || {}),
+    ]);
+    // Filter to current year only
+    const sorted = [...allKeys].filter(k => k.startsWith(String(salaryYear))).sort();
+    if (sorted.length === 0) return { labels: [], paidMRR: [], closedWonMRR: [] };
+
+    const labels = [];
+    const paidMRR = [];
+    const closedWonMRR = [];
+
+    sorted.forEach(key => {
+      const [tY, tM] = key.split("-").map(Number);
+      labels.push(`${MONTHS_FR[tM-1]?.slice(0,3) || "?"}`);
+
+      // Paid MRR = from AE commission data (date_de_paiement)
+      const aeMonth = mergedAeData?.[key];
+      const paid = (aeMonth?.members || []).reduce((s, m) => {
+        const isAE = TEAM_CONFIG.find(c => c.id === m.id && (c.role === "AE" && !c.isTeamQuota));
+        if (!isAE) return s;
+        return s + (m.deals || []).reduce((ds, d) => ds + d.amount, 0);
+      }, 0);
+      paidMRR.push(paid);
+
+      // Closed Won MRR = from closedwon data (closedate)
+      const cwMonth = closedWonData?.[key];
+      const cw = (cwMonth?.members || []).reduce((s, m) => {
+        const isAE = TEAM_CONFIG.find(c => c.id === m.id && (c.role === "AE" && !c.isTeamQuota));
+        if (!isAE) return s;
+        return s + (m.deals || []).reduce((ds, d) => ds + d.amount, 0);
+      }, 0);
+      closedWonMRR.push(cw);
+    });
+
+    return { labels, paidMRR, closedWonMRR };
+  }, [mergedAeData, closedWonData, salaryYear]);
+
+  // Closed Won aggregated for selected months
+  const closedWonAggregated = useMemo(() => {
+    const result = {};
+    TEAM_CONFIG.filter(c => c.role === "AE" && !c.isTeamQuota).forEach(cfg => {
+      result[cfg.id] = { ...cfg, deals: [], mrr: 0 };
+    });
+    selectedMonths.forEach(sM => {
+      const key = paymentKey(salaryYear, sM);
+      const cwMonth = closedWonData?.[key];
+      if (!cwMonth?.members) return;
+      cwMonth.members.forEach(m => {
+        if (!result[m.id]) return;
+        result[m.id].deals = [...result[m.id].deals, ...(m.deals || [])];
+        result[m.id].mrr += (m.deals || []).reduce((s, d) => s + d.amount, 0);
+      });
+    });
+    return Object.values(result);
+  }, [closedWonData, selectedMonths, salaryYear]);
+
+  const totalClosedWonMRR = closedWonAggregated.reduce((s, m) => s + m.mrr, 0);
+  const closedWonBars = closedWonAggregated.map(m => ({
+    label: hideNames ? "•••" : (m.name.length > 6 ? m.name.slice(0,5) + "." : m.name),
+    value: m.mrr,
+    color: PURPLE,
+  }));
+
+  // ─── Churn / Retention data (AE only — negative amount deals) ─────────
+  const churnAggregated = useMemo(() => {
+    const result = {};
+    TEAM_CONFIG.filter(c => c.role === "AE" && !c.isTeamQuota).forEach(cfg => {
+      result[cfg.id] = { ...cfg, deals: [], churnAmount: 0 };
+    });
+    selectedMonths.forEach(sM => {
+      const key = paymentKey(salaryYear, sM);
+      const chMonth = churnData?.[key];
+      if (!chMonth?.members) return;
+      chMonth.members.forEach(m => {
+        if (!result[m.id]) return;
+        result[m.id].deals = [...result[m.id].deals, ...(m.deals || [])];
+        result[m.id].churnAmount += (m.deals || []).reduce((s, d) => s + Math.abs(d.amount), 0);
+      });
+    });
+    return Object.values(result);
+  }, [churnData, selectedMonths, salaryYear]);
+
+  const totalChurn = churnAggregated.reduce((s, m) => s + m.churnAmount, 0);
+  const totalChurnDeals = churnAggregated.reduce((s, m) => s + m.deals.length, 0);
+  const netMRR = totalClosedWonMRR - totalChurn;
+  const retentionRate = totalClosedWonMRR > 0 ? ((totalClosedWonMRR - totalChurn) / totalClosedWonMRR) : 1;
+
+  const hasClosedWonData = Object.keys(closedWonData || {}).length > 0;
+  const hasChurnData = Object.keys(churnData || {}).length > 0;
 
   // Top performers (by avg attainment)
   const topPerformers = [...allIndividual].sort((a, b) => b.att - a.att).slice(0, 3);
@@ -1301,7 +1472,120 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
         </div>
       )}
 
-      {/* Row 4: Role breakdown table */}
+      {/* Row 4: Closed Won MRR + Comparison curve */}
+      {hasClosedWonData && (
+        <>
+          {/* Closed Won MRR per AE */}
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div style={CARD}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 16 }}>🏆</span>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>MRR Closed Won par AE</div>
+              </div>
+              <div style={{ fontSize: 11, color: "#d1d5db", marginBottom: 12 }}>Deals passes en "Closed Won" sur la periode</div>
+              <BarChart data={closedWonBars} width={600} height={220} />
+            </div>
+
+            {/* Closed Won KPIs */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ ...CARD, flex: 1 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Total Closed Won</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: "#059669", letterSpacing: -0.5 }}>{eurR(totalClosedWonMRR)}</div>
+                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>{closedWonAggregated.reduce((s, m) => s + m.deals.length, 0)} deals</div>
+              </div>
+              <div style={{ ...CARD, flex: 1 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Churn / Downsell</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: totalChurn > 0 ? "#ef4444" : "#9ca3af", letterSpacing: -0.5 }}>
+                  {totalChurn > 0 ? `-${eurR(totalChurn)}` : eurR(0)}
+                </div>
+                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>{totalChurnDeals} deal{totalChurnDeals > 1 ? "s" : ""} negatif{totalChurnDeals > 1 ? "s" : ""}</div>
+              </div>
+              <div style={{ ...CARD, flex: 1 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Net MRR</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: netMRR >= 0 ? "#059669" : "#ef4444", letterSpacing: -0.5 }}>{eurR(netMRR)}</div>
+                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+                  Retention : <span style={{ fontWeight: 600, color: retentionRate >= 0.9 ? "#059669" : retentionRate >= 0.7 ? "#d97706" : "#ef4444" }}>{pct(retentionRate)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Comparison Line Chart: Paid MRR vs Closed Won MRR */}
+          {comparisonData.labels.length > 1 && (
+            <div style={{ ...CARD, marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 16 }}>📊</span>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>MRR Paye vs Closed Won — {salaryYear}</div>
+              </div>
+              <div style={{ fontSize: 11, color: "#d1d5db", marginBottom: 12 }}>
+                Comparaison mensuelle entre le MRR effectivement paye et le MRR passe en Closed Won
+              </div>
+              <LineChart
+                series={[
+                  { label: "MRR Paye (date paiement)", color: PURPLE, data: comparisonData.paidMRR },
+                  { label: "MRR Closed Won (closedate)", color: "#059669", data: comparisonData.closedWonMRR },
+                ]}
+                labels={comparisonData.labels}
+                width={920}
+                height={300}
+              />
+            </div>
+          )}
+
+          {/* Retention / Churn detail per AE */}
+          {hasChurnData && totalChurnDeals > 0 && (
+            <div style={{ ...CARD, marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                <span style={{ fontSize: 16 }}>📉</span>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>Retention AE — Deals negatifs (Churn / Downsell)</div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                {churnAggregated.filter(m => m.deals.length > 0).map(m => (
+                  <div key={m.id} style={{
+                    background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
+                    padding: "14px 16px",
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{hideNames ? "•••••" : m.name}</div>
+                        <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 500 }}>{m.deals.length} deal{m.deals.length > 1 ? "s" : ""}</div>
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#ef4444" }}>-{eurR(m.churnAmount)}</div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {m.deals.map((d, i) => (
+                        <div key={i} style={{ fontSize: 11, color: "#6b7280", display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: 8 }}>
+                            {d.name}
+                          </span>
+                          <span style={{ color: "#ef4444", fontWeight: 500, flexShrink: 0 }}>{eur2(d.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {churnAggregated.filter(m => m.deals.length > 0).length === 0 && (
+                <div style={{ fontSize: 13, color: "#059669", fontWeight: 500, textAlign: "center", padding: "20px 0" }}>
+                  ✅ Aucun churn detecte sur la periode
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* No data message for Closed Won / Churn */}
+      {!hasClosedWonData && (
+        <div style={{ ...CARD, marginBottom: 14, textAlign: "center", padding: "24px" }}>
+          <div style={{ fontSize: 13, color: "#9ca3af" }}>
+            <span style={{ fontSize: 18 }}>📊</span>
+            <div style={{ marginTop: 8 }}>Closed Won & Retention — Cliquez sur <strong>Refresh</strong> pour charger les donnees</div>
+          </div>
+        </div>
+      )}
+
+      {/* Row 5: Role breakdown table */}
       <div style={CARD}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 16 }}>Detail par role</div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1362,6 +1646,8 @@ export default function App() {
   const [liveData,    setLiveData]   = useState({});
   const [liveBdrData, setLiveBdrData]= useState({});
   const [livePmData,  setLivePmData] = useState({});
+  const [liveClosedWonData, setLiveClosedWonData] = useState({});
+  const [liveChurnData, setLiveChurnData] = useState({});
   const [salaryMonth, setSalaryMonth]= useState(now.getMonth() + 1);
   const [salaryYear,  setSalaryYear] = useState(now.getFullYear());
   const [slackLog,    setSlackLog]   = useState([]);
@@ -1395,12 +1681,14 @@ export default function App() {
       const key = paymentKey(salaryYear, salaryMonth);
       const [payYear, payMonth] = key.split("-").map(Number);
 
-      const [aeRes, bdrRes, pmRes] = await Promise.all([
+      const [aeRes, bdrRes, pmRes, cwRes, churnRes] = await Promise.all([
         fetch(`/api/hubspot-deals?year=${payYear}&month=${payMonth}`),
         fetch(`/api/hubspot-bdr?year=${payYear}&month=${payMonth}`),
         fetch(`/api/hubspot-pm?year=${payYear}&month=${payMonth}`),
+        fetch(`/api/hubspot-closedwon?year=${payYear}&month=${payMonth}`),
+        fetch(`/api/hubspot-churn?year=${payYear}&month=${payMonth}`),
       ]);
-      const [aeJson, bdrJson, pmJson] = await Promise.all([aeRes.json(), bdrRes.json(), pmRes.json()]);
+      const [aeJson, bdrJson, pmJson, cwJson, churnJson] = await Promise.all([aeRes.json(), bdrRes.json(), pmRes.json(), cwRes.json(), churnRes.json()]);
 
       if (!aeJson.ok) throw new Error(aeJson.error || "Erreur HubSpot (AE)");
       if (!bdrJson.ok) throw new Error(bdrJson.error || "Erreur HubSpot (BDR)");
@@ -1409,6 +1697,8 @@ export default function App() {
       setLiveData(prev => ({ ...prev, [key]: { members: Object.entries(aeJson.members).map(([id, deals]) => ({ id, deals })) } }));
       setLiveBdrData(prev => ({ ...prev, [key]: { members: Object.entries(bdrJson.members).map(([id, deals]) => ({ id, deals })) } }));
       setLivePmData(prev => ({ ...prev, [key]: { members: Object.entries(pmJson.members).map(([id, deals]) => ({ id, deals })) } }));
+      if (cwJson.ok) setLiveClosedWonData(prev => ({ ...prev, [key]: { members: Object.entries(cwJson.members).map(([id, deals]) => ({ id, deals })) } }));
+      if (churnJson.ok) setLiveChurnData(prev => ({ ...prev, [key]: { members: Object.entries(churnJson.members).map(([id, deals]) => ({ id, deals })) } }));
       setLastRefresh(new Date());
       setFlashMsg(`Donnees a jour · ${payLbl}`);
     } catch(e) {
@@ -1523,6 +1813,8 @@ export default function App() {
           mergedAeData={mergedAeData}
           mergedBdrData={mergedBdrData}
           mergedPmData={mergedPmData}
+          closedWonData={liveClosedWonData}
+          churnData={liveChurnData}
           hideNames={hideNames}
           onRefresh={handleRefresh}
           refreshing={refreshing}
