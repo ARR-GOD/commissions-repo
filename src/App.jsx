@@ -53,6 +53,8 @@ const eur2 = n => fmtCurrency(n, "EUR");
 const eurR = n => fmtCurrencyR(n, "EUR");
 const pct  = n => (n * 100).toFixed(1) + "%";
 
+const FIXED_SALARY = 50000; // Salaire fixe moyen annuel
+
 const PURPLE = "#7c3aed";
 const PURPLE_LIGHT = "#ede9fe";
 const PURPLE_BORDER = "#c4b5fd";
@@ -910,9 +912,22 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
   // KPI values
   const totalCommissions = allIndividual.reduce((s, m) => s + m.commission, 0);
   const totalMRR         = members.filter(m => m.role === "AE").reduce((s, m) => s + m.mrr, 0);
+  const totalPmMRR       = pmMembers.reduce((s, m) => s + (m.mrr || 0), 0);
   const avgAtt           = allIndividual.length > 0 ? allIndividual.reduce((s, m) => s + m.att, 0) / allIndividual.length : 0;
   const totalDeals       = allIndividual.reduce((s, m) => s + m.deals.length, 0);
   const aboveQuota       = allIndividual.filter(m => m.att >= 1).length;
+
+  // ROI calculation
+  // Cost = monthly share of (fixed salary + variable) for each member
+  const monthlyCostTotal = members.reduce((s, m) => s + (FIXED_SALARY + m.annualVariable) / 12, 0);
+  const monthlyVariableTotal = members.reduce((s, m) => s + m.annualVariable / 12, 0);
+  const monthlyFixedTotal = members.length * FIXED_SALARY / 12;
+  // Revenue = ARR closed = (AE MRR + PM MRR) × 12
+  const arrClosed = (totalMRR + totalPmMRR) * 12;
+  const roi = monthlyCostTotal > 0 ? (arrClosed - monthlyCostTotal) / monthlyCostTotal : 0;
+  const roiColor = roi >= 2 ? "#059669" : roi >= 0 ? "#d97706" : "#ef4444";
+  const roiBg = roi >= 2 ? "#ecfdf5" : roi >= 0 ? "#fffbeb" : "#fef2f2";
+  const roiBorder = roi >= 2 ? "#a7f3d0" : roi >= 0 ? "#fde68a" : "#fecaca";
 
   // Commission bar chart data
   const commissionBars = allIndividual.map(m => ({
@@ -1038,11 +1053,95 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 14 }}>
         <KpiCard label="Total Commissions" value={eurR(totalCommissions)} sub={`${allIndividual.length} membres`} icon="💰" />
         <KpiCard label="MRR Equipe (AE)" value={eurR(totalMRR)} sub={`${members.filter(m => m.role === "AE").reduce((s,m) => s + m.deals.length, 0)} deals`} icon="📈" color="#059669" />
         <KpiCard label="Atteinte Moy." value={pct(avgAtt)} sub={`${aboveQuota}/${allIndividual.length} au-dessus du quota`} icon="🎯" color={attColor(avgAtt)} />
         <KpiCard label="Deals Total" value={String(totalDeals)} sub="Tous roles confondus" icon="📊" color="#6366f1" />
+      </div>
+
+      {/* ROI Section */}
+      <div style={{
+        background: `linear-gradient(135deg, ${roiBg} 0%, #fff 100%)`,
+        border: `1px solid ${roiBorder}`, borderRadius: 16,
+        padding: "24px 28px", marginBottom: 14,
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 20 }}>📐</span>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>ROI Indicatif — Equipe Sales</div>
+          <span style={{
+            fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 20,
+            background: `${roiColor}15`, color: roiColor, marginLeft: 8,
+          }}>
+            Estimation
+          </span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
+          {/* Revenue */}
+          <div style={{ background: "#fff", borderRadius: 12, padding: "16px 18px", border: "1px solid #e5e7eb" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>ARR Close (AE + PM)</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#059669", letterSpacing: -0.5 }}>{eurR(arrClosed)}</div>
+            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+              ({eurR(totalMRR)} AE + {eurR(totalPmMRR)} PM) × 12
+            </div>
+          </div>
+          {/* Cost */}
+          <div style={{ background: "#fff", borderRadius: 12, padding: "16px 18px", border: "1px solid #e5e7eb" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Cout Mensuel Equipe</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#ef4444", letterSpacing: -0.5 }}>{eurR(monthlyCostTotal)}</div>
+            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+              Fixe {eurR(monthlyFixedTotal)} + Var. {eurR(monthlyVariableTotal)}
+            </div>
+          </div>
+          {/* ROI */}
+          <div style={{ background: "#fff", borderRadius: 12, padding: "16px 18px", border: `2px solid ${roiColor}30` }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>ROI</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: roiColor, letterSpacing: -0.5 }}>
+              {roi >= 0 ? "+" : ""}{(roi * 100).toFixed(0)}%
+            </div>
+            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+              {arrClosed > monthlyCostTotal ? `+${eurR(arrClosed - monthlyCostTotal)} net` : `${eurR(arrClosed - monthlyCostTotal)} net`}
+            </div>
+          </div>
+        </div>
+
+        {/* Per-member cost breakdown */}
+        <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Detail par membre (cout mensuel)</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+            {members.map(m => {
+              const monthlyCost = (FIXED_SALARY + m.annualVariable) / 12;
+              const mRevenue = (m.role === "BDR" || m.isTeamQuota) ? 0 : (m.mrr || 0) * 12;
+              const mRoi = monthlyCost > 0 ? (mRevenue - monthlyCost) / monthlyCost : 0;
+              const mColor = mRoi >= 0 ? "#059669" : "#ef4444";
+              return (
+                <div key={m.id} style={{
+                  background: "#fff", border: "1px solid #f3f4f6", borderRadius: 10,
+                  padding: "10px 12px", fontSize: 12,
+                }}>
+                  <div style={{ fontWeight: 600, color: "#111827", marginBottom: 4 }}>{hideNames ? "•••••" : m.name}</div>
+                  <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 2 }}>
+                    {eurR(monthlyCost)}/mois
+                  </div>
+                  {(m.role !== "BDR" && !m.isTeamQuota) ? (
+                    <div style={{ fontWeight: 700, color: mColor, fontSize: 13 }}>
+                      {mRoi >= 0 ? "+" : ""}{(mRoi * 100).toFixed(0)}%
+                    </div>
+                  ) : (
+                    <div style={{ fontWeight: 500, color: "#d1d5db", fontSize: 11, fontStyle: "italic" }}>
+                      {m.role === "BDR" ? "Indirect" : "Equipe"}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 11, color: "#d1d5db", fontStyle: "italic" }}>
+            * Base sur un salaire fixe moyen de {eurR(FIXED_SALARY)}/an + variable individuel. ARR = MRR × 12. BDRs et Head of Sales marques "indirect/equipe" car leur impact est lie aux AEs.
+          </div>
+        </div>
       </div>
 
       {/* Row 1: Commissions chart + Donut */}
