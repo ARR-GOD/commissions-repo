@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     });
 
     const data = await searchRes.json();
-    if (!searchRes.ok) return res.status(500).json({ error: data.message || "HubSpot error" });
+    if (!searchRes.ok) return res.status(500).json({ error: data.message || "HubSpot error", details: data, status: searchRes.status });
 
     // Grouper par PM
     const members = Object.fromEntries(Object.values(PM_MAP).map(id => [id, []]));
