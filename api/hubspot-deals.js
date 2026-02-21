@@ -38,7 +38,7 @@ export default async function handler(req, res) {
             { propertyName: "hubspot_owner_id",      operator: "IN",  values: OWNER_IDS },
           ]
         }],
-        properties: ["dealname", "mrr", "date_de_paiement", "hubspot_owner_id"],
+        properties: ["dealname", "amount", "date_de_paiement", "hubspot_owner_id"],
         limit: 100,
       }),
     });
