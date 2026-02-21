@@ -15,6 +15,9 @@ const TEAM_CONFIG = [
   { id: "emilio",   name: "Emilio",   fullName: "Emilio Sallier",         role: "BDR",          quotaSQLs: 10, annualVariable: 15000, genereParId: "30082998",   slackId: "U087CKD9VHU" },
   { id: "oscar",    name: "Oscar",    fullName: "Oscar Mcdonald",         role: "BDR",          quotaSQLs: 20, annualVariable: 18000, genereParId: "29457764",   slackId: "U08U6SV2P9N" },
   { id: "illan",    name: "Illan",    fullName: "Ilan Brillard",          role: "BDR",          quotaSQLs: 20, annualVariable: 12000, genereParId: "31730069",   slackId: "U0A7X8YD48Z" },
+  // Partnership Managers
+  { id: "antoine",  name: "Antoine",  fullName: "Antoine Rivaud",         role: "PM",           quota: 3333,  annualVariable: 20000, genereParId: "1949410186", slackId: "U079LTGP5LY" },
+  { id: "giles",    name: "Giles",    fullName: "Giles Eida",             role: "PM",           quota: 11800, annualVariable: 40000, genereParId: "32259172",   slackId: "U0ADZ5AJ256", currency: "GBP" },
 ];
 
 // ─── DONNÉES HUBSPOT (AE) ────────────────────────────────────────────────
@@ -40,9 +43,14 @@ const HUBSPOT_DATA = {
 // ─── DONNÉES HUBSPOT (BDR) ───────────────────────────────────────────────
 const HUBSPOT_BDR_DATA = {};
 
+// ─── DONNÉES HUBSPOT (PM) ────────────────────────────────────────────────
+const HUBSPOT_PM_DATA = {};
+
 // ─── HELPERS ──────────────────────────────────────────────────────────────
-const eur2 = n => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
-const eurR = n => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(Math.round(n));
+const fmtCurrency = (n, currency = "EUR") => new Intl.NumberFormat(currency === "GBP" ? "en-GB" : "fr-FR", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+const fmtCurrencyR = (n, currency = "EUR") => new Intl.NumberFormat(currency === "GBP" ? "en-GB" : "fr-FR", { style: "currency", currency, maximumFractionDigits: 0 }).format(Math.round(n));
+const eur2 = n => fmtCurrency(n, "EUR");
+const eurR = n => fmtCurrencyR(n, "EUR");
 const pct  = n => (n * 100).toFixed(1) + "%";
 
 const PURPLE = "#7c3aed";
@@ -67,34 +75,44 @@ function paymentLabel(salaryYear, salaryMonth) {
   return `${MONTHS_FR[m-1]} ${y}`;
 }
 
-function compute(salaryYear, salaryMonth, aeData = HUBSPOT_DATA, bdrData = HUBSPOT_BDR_DATA) {
+function compute(salaryYear, salaryMonth, aeData = HUBSPOT_DATA, bdrData = HUBSPOT_BDR_DATA, pmData = HUBSPOT_PM_DATA) {
   const key = paymentKey(salaryYear, salaryMonth);
   const rawAE  = aeData[key];
   const rawBDR = bdrData[key];
+  const rawPM  = pmData[key];
 
   return TEAM_CONFIG.map(cfg => {
     const monthlyMax = cfg.annualVariable / 12;
+    const cur = cfg.currency || "EUR";
 
     if (cfg.role === "BDR") {
       const rawMember = rawBDR?.members?.find(m => m.id === cfg.id);
       const deals = rawMember?.deals || [];
       const sqlCount = deals.length;
       const att = sqlCount / cfg.quotaSQLs;
-      return { ...cfg, deals, sqlCount, monthlyMax, att, commission: att * monthlyMax, hasData: !!rawBDR };
+      return { ...cfg, deals, sqlCount, monthlyMax, att, commission: att * monthlyMax, hasData: !!rawBDR, cur };
+    }
+
+    if (cfg.role === "PM") {
+      const rawMember = rawPM?.members?.find(m => m.id === cfg.id);
+      const deals = rawMember?.deals || [];
+      const mrr = deals.reduce((s, d) => s + d.amount, 0);
+      const att = mrr / cfg.quota;
+      return { ...cfg, deals, mrr, monthlyMax, att, commission: att * monthlyMax, hasData: !!rawPM, cur };
     }
 
     // AE or Head of Sales
     const rawMember = rawAE?.members?.find(m => m.id === cfg.id);
     const deals = rawMember?.deals || [];
     const mrr = deals.reduce((s, d) => s + d.amount, 0);
-    return { ...cfg, deals, mrr, monthlyMax, att: 0, commission: 0, hasData: !!rawAE };
+    return { ...cfg, deals, mrr, monthlyMax, att: 0, commission: 0, hasData: !!rawAE, cur };
   }).map((m, _, arr) => {
-    if (m.role === "BDR") return m; // already computed
+    if (m.role === "BDR" || m.role === "PM") return m; // already computed
     if (!m.isTeamQuota) {
       const att = m.mrr / m.quota;
       return { ...m, att, commission: att * m.monthlyMax };
     }
-    // Head of Sales — team MRR = AE only (not BDR)
+    // Head of Sales — team MRR = AE only (not BDR, not PM)
     const teamMRR = arr.filter(x => x.role === "AE").reduce((s, x) => s + x.mrr, 0);
     const att = teamMRR / m.quota;
     return { ...m, mrr: teamMRR, att, commission: att * m.monthlyMax };
@@ -104,12 +122,22 @@ function compute(salaryYear, salaryMonth, aeData = HUBSPOT_DATA, bdrData = HUBSP
 function slackMsg(member, salaryYear, salaryMonth, aeMembers) {
   const salLbl = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
   const payLbl = paymentLabel(salaryYear, salaryMonth);
+  const cur = member.cur || "EUR";
+  const fmt2 = n => fmtCurrency(n, cur);
+  const fmtR = n => fmtCurrencyR(n, cur);
 
   if (member.role === "BDR") {
     const dealLines = member.deals.length === 0
       ? "  _Aucun deal qualifie ce mois-ci._"
       : member.deals.map(d => `  • ${d.name} (${d.dateQualified})`).join("\n");
-    return `👋 Bonjour *${member.name}*,\n\nVoici le recapitulatif de tes commissions pour le salaire de *${salLbl}*, base sur les deals qualifies en *${payLbl}*.\n\n*Deals qualifies :*\n${dealLines}\n\n*Nombre de SQLs* : ${member.sqlCount}\n*Atteinte quota* : ${pct(member.att)} (quota ${member.quotaSQLs} SQLs/mois)\n*Commission* : *${eurR(member.commission)}*\n\nMerci de confirmer que ces chiffres te semblent corrects. En cas d'erreur, contacte-moi directement. ✅`;
+    return `👋 Bonjour *${member.name}*,\n\nVoici le recapitulatif de tes commissions pour le salaire de *${salLbl}*, base sur les deals qualifies en *${payLbl}*.\n\n*Deals qualifies :*\n${dealLines}\n\n*Nombre de SQLs* : ${member.sqlCount}\n*Atteinte quota* : ${pct(member.att)} (quota ${member.quotaSQLs} SQLs/mois)\n*Commission* : *${fmtR(member.commission)}*\n\nMerci de confirmer que ces chiffres te semblent corrects. En cas d'erreur, contacte-moi directement. ✅`;
+  }
+
+  if (member.role === "PM") {
+    const dealLines = member.deals.length === 0
+      ? "  _Aucun paiement recu ce mois-ci._"
+      : member.deals.map(d => `  • ${d.name} — ${fmt2(d.amount)} (${d.date})`).join("\n");
+    return `👋 Bonjour *${member.name}*,\n\nVoici le recapitulatif de tes commissions pour le salaire de *${salLbl}*, base sur les paiements recus en *${payLbl}* pour les deals que tu as generes.\n\n*Deals comptabilises :*\n${dealLines}\n\n*Total MRR* : ${fmt2(member.mrr)}\n*Atteinte quota* : ${pct(member.att)} (quota ${fmtR(member.quota)}/mois)\n*Commission* : *${fmtR(member.commission)}*\n\nMerci de confirmer que ces chiffres te semblent corrects. En cas d'erreur, contacte-moi directement. ✅`;
   }
 
   if (!member.isTeamQuota) {
@@ -196,6 +224,7 @@ function MemberCard({ member }) {
   const bg     = attBg(member.att);
   const border = attBorder(member.att);
   const isBDR  = member.role === "BDR";
+  const cur    = member.cur || "EUR";
 
   return (
     <div style={{
@@ -208,11 +237,14 @@ function MemberCard({ member }) {
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: PURPLE, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>{member.role}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: PURPLE, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>{member.role}</div>
+            {cur === "GBP" && <div style={{ fontSize: 10, fontWeight: 600, color: "#6b7280", background: "#f3f4f6", padding: "1px 6px", borderRadius: 4, marginBottom: 4 }}>GBP</div>}
+          </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", letterSpacing: -0.3 }}>{member.name}</div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#111827", lineHeight: 1, letterSpacing: -0.5 }}>{eurR(member.commission)}</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#111827", lineHeight: 1, letterSpacing: -0.5 }}>{fmtCurrencyR(member.commission, cur)}</div>
           <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4, fontWeight: 500 }}>commission</div>
         </div>
       </div>
@@ -228,8 +260,8 @@ function MemberCard({ member }) {
           </>
         ) : (
           <>
-            <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>{eur2(member.mrr)} MRR{member.isTeamQuota ? " equipe" : ""}</span>
-            <span style={{ fontSize: 12, color: "#9ca3af" }}>/ {eurR(member.quota)}</span>
+            <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>{fmtCurrency(member.mrr, cur)} MRR{member.isTeamQuota ? " equipe" : ""}</span>
+            <span style={{ fontSize: 12, color: "#9ca3af" }}>/ {fmtCurrencyR(member.quota, cur)}</span>
           </>
         )}
       </div>
@@ -242,102 +274,93 @@ const TH = { padding: "12px 18px", textAlign: "left", fontSize: 11, letterSpacin
 const TD = { padding: "12px 18px", fontSize: 14, color: "#374151", borderBottom: "1px solid #f9fafb", verticalAlign: "middle" };
 
 function DealsTable({ members }) {
-  const aeMembers  = members.filter(m => m.role === "AE");
-  const bdrMembers = members.filter(m => m.role === "BDR");
+  const aeMembers   = members.filter(m => m.role === "AE");
+  const bdrMembers  = members.filter(m => m.role === "BDR");
+  const pmMembers   = members.filter(m => m.role === "PM");
   const headOfSales = members.find(m => m.isTeamQuota);
 
   const tabs = [
     ...aeMembers.map(m => ({ id: m.id, label: m.name, type: "ae", member: m })),
     { id: "raphael", label: "Raphaël", type: "team", member: headOfSales, aeMembers },
     ...bdrMembers.map(m => ({ id: m.id, label: m.name, type: "bdr", member: m })),
+    ...pmMembers.map(m => ({ id: m.id, label: m.name, type: "pm", member: m })),
   ];
   const [activeTab, setActiveTab] = useState(tabs[0]?.id);
   const active = tabs.find(t => t.id === activeTab) || tabs[0];
 
+  const TabButton = ({ t }) => {
+    const isActive = t.id === activeTab;
+    const cur = t.member.cur || "EUR";
+    const badge = t.type === "bdr"
+      ? `${t.member.sqlCount} SQL${t.member.sqlCount !== 1 ? "s" : ""}`
+      : fmtCurrency(t.member.mrr, cur);
+    return (
+      <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+        padding: "14px 18px", background: "none", border: "none",
+        borderBottom: isActive ? `2px solid ${PURPLE}` : "2px solid transparent",
+        color: isActive ? "#111827" : "#9ca3af", fontSize: 14,
+        fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: FONT,
+        display: "flex", alignItems: "center", gap: 8, marginBottom: -1,
+        transition: "color 0.15s", whiteSpace: "nowrap",
+      }}>
+        {t.label}
+        <span style={{
+          fontSize: 12, padding: "2px 10px", borderRadius: 20, fontWeight: 600,
+          background: isActive ? PURPLE_LIGHT : "#f3f4f6",
+          color: isActive ? PURPLE : "#9ca3af",
+        }}>
+          {badge}
+        </span>
+      </button>
+    );
+  };
+
+  const Separator = () => (
+    <div style={{ display: "flex", alignItems: "center", padding: "0 8px" }}>
+      <div style={{ width: 1, height: 20, background: "#e5e7eb" }} />
+    </div>
+  );
+
   return (
     <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, overflow: "hidden", marginTop: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
       <div style={{ display: "flex", borderBottom: "1px solid #f3f4f6", padding: "0 12px", background: "#fafafa", overflowX: "auto" }}>
-        {/* AE tabs */}
-        {tabs.filter(t => t.type === "ae" || t.type === "team").map(t => {
-          const isActive = t.id === activeTab;
-          return (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-              padding: "14px 18px", background: "none", border: "none",
-              borderBottom: isActive ? `2px solid ${PURPLE}` : "2px solid transparent",
-              color: isActive ? "#111827" : "#9ca3af", fontSize: 14,
-              fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: FONT,
-              display: "flex", alignItems: "center", gap: 8, marginBottom: -1,
-              transition: "color 0.15s", whiteSpace: "nowrap",
-            }}>
-              {t.label}
-              <span style={{
-                fontSize: 12, padding: "2px 10px", borderRadius: 20, fontWeight: 600,
-                background: isActive ? PURPLE_LIGHT : "#f3f4f6",
-                color: isActive ? PURPLE : "#9ca3af",
-              }}>
-                {eur2(t.member.mrr)}
-              </span>
-            </button>
-          );
-        })}
-        {/* Separator */}
-        {bdrMembers.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", padding: "0 8px" }}>
-            <div style={{ width: 1, height: 20, background: "#e5e7eb" }} />
-          </div>
-        )}
-        {/* BDR tabs */}
-        {tabs.filter(t => t.type === "bdr").map(t => {
-          const isActive = t.id === activeTab;
-          return (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-              padding: "14px 18px", background: "none", border: "none",
-              borderBottom: isActive ? `2px solid ${PURPLE}` : "2px solid transparent",
-              color: isActive ? "#111827" : "#9ca3af", fontSize: 14,
-              fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: FONT,
-              display: "flex", alignItems: "center", gap: 8, marginBottom: -1,
-              transition: "color 0.15s", whiteSpace: "nowrap",
-            }}>
-              {t.label}
-              <span style={{
-                fontSize: 12, padding: "2px 10px", borderRadius: 20, fontWeight: 600,
-                background: isActive ? PURPLE_LIGHT : "#f3f4f6",
-                color: isActive ? PURPLE : "#9ca3af",
-              }}>
-                {t.member.sqlCount} SQL{t.member.sqlCount !== 1 ? "s" : ""}
-              </span>
-            </button>
-          );
-        })}
+        {tabs.filter(t => t.type === "ae" || t.type === "team").map(t => <TabButton key={t.id} t={t} />)}
+        {bdrMembers.length > 0 && <Separator />}
+        {tabs.filter(t => t.type === "bdr").map(t => <TabButton key={t.id} t={t} />)}
+        {pmMembers.length > 0 && <Separator />}
+        {tabs.filter(t => t.type === "pm").map(t => <TabButton key={t.id} t={t} />)}
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>
-            {active.type === "ae"
-              ? <><th style={TH}>Deal</th><th style={TH}>Date paiement</th><th style={{...TH,textAlign:"right"}}>Montant MRR</th><th style={{...TH,textAlign:"right"}}>% quota</th></>
-              : active.type === "bdr"
+            {active.type === "bdr"
               ? <><th style={TH}>Deal</th><th style={TH}>Date qualification</th><th style={{...TH,textAlign:"center"}}>SQL</th></>
-              : <><th style={TH}>AE</th><th style={TH}>Deals</th><th style={{...TH,textAlign:"right"}}>MRR genere</th><th style={{...TH,textAlign:"right"}}>Atteinte</th></>
+              : active.type === "team"
+              ? <><th style={TH}>AE</th><th style={TH}>Deals</th><th style={{...TH,textAlign:"right"}}>MRR genere</th><th style={{...TH,textAlign:"right"}}>Atteinte</th></>
+              : <><th style={TH}>Deal</th><th style={TH}>Date paiement</th><th style={{...TH,textAlign:"right"}}>Montant MRR</th><th style={{...TH,textAlign:"right"}}>% quota</th></>
             }
           </tr>
         </thead>
         <tbody>
-          {active.type === "ae" ? (
+          {(active.type === "ae" || active.type === "pm") ? (
             active.member.deals.length === 0
               ? <tr><td colSpan={4} style={{...TD,color:"#d1d5db",fontStyle:"italic",textAlign:"center",padding:"40px",fontSize:14}}>Aucun deal ce mois-ci</td></tr>
               : <>
-                  {active.member.deals.map((d,i) => (
-                    <tr key={i} style={{ transition: "background 0.15s" }} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                      <td style={{...TD,color:"#111827",fontWeight:500}}>{d.name}</td>
-                      <td style={{...TD,color:"#6b7280"}}>{d.date}</td>
-                      <td style={{...TD,textAlign:"right",color:"#059669",fontWeight:600}}>{eur2(d.amount)}</td>
-                      <td style={{...TD,textAlign:"right",color:"#9ca3af"}}>{pct(d.amount/active.member.quota)}</td>
-                    </tr>
-                  ))}
+                  {active.member.deals.map((d,i) => {
+                    const cur = active.member.cur || "EUR";
+                    return (
+                      <tr key={i} style={{ transition: "background 0.15s" }} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <td style={{...TD,color:"#111827",fontWeight:500}}>{d.name}</td>
+                        <td style={{...TD,color:"#6b7280"}}>{d.date}</td>
+                        <td style={{...TD,textAlign:"right",color:"#059669",fontWeight:600}}>{fmtCurrency(d.amount, cur)}</td>
+                        <td style={{...TD,textAlign:"right",color:"#9ca3af"}}>{pct(d.amount/active.member.quota)}</td>
+                      </tr>
+                    );
+                  })}
                   <tr style={{background:"#fafafa"}}>
                     <td style={{...TD,color:"#111827",fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>Total</td>
                     <td style={{...TD,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}></td>
-                    <td style={{...TD,textAlign:"right",color:"#111827",fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>{eur2(active.member.mrr)}</td>
+                    <td style={{...TD,textAlign:"right",color:"#111827",fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>{fmtCurrency(active.member.mrr, active.member.cur || "EUR")}</td>
                     <td style={{...TD,textAlign:"right",color:attColor(active.member.att),fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>{pct(active.member.att)}</td>
                   </tr>
                 </>
@@ -385,7 +408,7 @@ function DealsTable({ members }) {
 // ─── PAYFIT BLOCK ─────────────────────────────────────────────────────────
 function PayfitBlock({ members }) {
   const [copied, setCopied] = useState(false);
-  const text = members.map(m => `${m.name} : ${eurR(m.commission)}`).join("\n");
+  const text = members.map(m => `${m.name} : ${fmtCurrencyR(m.commission, m.cur || "EUR")}`).join("\n");
   return (
     <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: "22px 24px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -402,7 +425,7 @@ function PayfitBlock({ members }) {
         {members.map(m => (
           <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 10, padding: "14px 16px" }}>
             <span style={{ fontSize: 14, color: "#6b7280" }}>{m.name}</span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>{eurR(m.commission)}</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>{fmtCurrencyR(m.commission, m.cur || "EUR")}</span>
           </div>
         ))}
       </div>
@@ -420,6 +443,7 @@ function SlackSection({ members, salaryYear, salaryMonth, onSendOne }) {
 
   const aePreviews  = previews.filter(m => m.role === "AE" || m.isTeamQuota);
   const bdrPreviews = previews.filter(m => m.role === "BDR");
+  const pmPreviews  = previews.filter(m => m.role === "PM");
 
   return (
     <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: "22px 24px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", marginTop: 20 }}>
@@ -439,6 +463,17 @@ function SlackSection({ members, salaryYear, salaryMonth, onSendOne }) {
           <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, marginTop: 20 }}>BDRs</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {bdrPreviews.map(m => (
+              <SlackCard key={m.id} member={m} onSendOne={onSendOne} />
+            ))}
+          </div>
+        </>
+      )}
+      {/* PMs */}
+      {pmPreviews.length > 0 && (
+        <>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, marginTop: 20 }}>Partnership Managers</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {pmPreviews.map(m => (
               <SlackCard key={m.id} member={m} onSendOne={onSendOne} />
             ))}
           </div>
@@ -495,7 +530,7 @@ function SlackCard({ member, onSendOne }) {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>{eurR(member.commission)}</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>{fmtCurrencyR(member.commission, member.cur || "EUR")}</span>
           {sent && (
             <span style={{ fontSize: 11, fontWeight: 600, color: "#059669", background: "#ecfdf5", padding: "3px 10px", borderRadius: 20 }}>
               {sent === "test" ? "Test envoye" : "Envoye"}
@@ -572,6 +607,7 @@ export default function App() {
   const [loggedIn,    setLoggedIn]   = useState(false);
   const [liveData,    setLiveData]   = useState({});
   const [liveBdrData, setLiveBdrData]= useState({});
+  const [livePmData,  setLivePmData] = useState({});
   const [salaryMonth, setSalaryMonth]= useState(now.getMonth() + 1);
   const [salaryYear,  setSalaryYear] = useState(now.getFullYear());
   const [slackLog,    setSlackLog]   = useState([]);
@@ -583,12 +619,15 @@ export default function App() {
 
   const mergedAeData  = { ...HUBSPOT_DATA, ...liveData };
   const mergedBdrData = { ...HUBSPOT_BDR_DATA, ...liveBdrData };
-  const members   = compute(salaryYear, salaryMonth, mergedAeData, mergedBdrData);
+  const mergedPmData  = { ...HUBSPOT_PM_DATA, ...livePmData };
+  const members    = compute(salaryYear, salaryMonth, mergedAeData, mergedBdrData, mergedPmData);
   const aeMembers  = members.filter(m => m.role === "AE" || m.isTeamQuota);
   const bdrMembers = members.filter(m => m.role === "BDR");
+  const pmMembers  = members.filter(m => m.role === "PM");
   const hasAeData  = !!(mergedAeData)[paymentKey(salaryYear, salaryMonth)];
   const hasBdrData = !!(mergedBdrData)[paymentKey(salaryYear, salaryMonth)];
-  const hasData    = hasAeData || hasBdrData;
+  const hasPmData  = !!(mergedPmData)[paymentKey(salaryYear, salaryMonth)];
+  const hasData    = hasAeData || hasBdrData || hasPmData;
   const payLbl     = paymentLabel(salaryYear, salaryMonth);
   const salLbl     = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
 
@@ -599,17 +638,20 @@ export default function App() {
       const key = paymentKey(salaryYear, salaryMonth);
       const [payYear, payMonth] = key.split("-").map(Number);
 
-      const [aeRes, bdrRes] = await Promise.all([
+      const [aeRes, bdrRes, pmRes] = await Promise.all([
         fetch(`/api/hubspot-deals?year=${payYear}&month=${payMonth}`),
         fetch(`/api/hubspot-bdr?year=${payYear}&month=${payMonth}`),
+        fetch(`/api/hubspot-pm?year=${payYear}&month=${payMonth}`),
       ]);
-      const [aeJson, bdrJson] = await Promise.all([aeRes.json(), bdrRes.json()]);
+      const [aeJson, bdrJson, pmJson] = await Promise.all([aeRes.json(), bdrRes.json(), pmRes.json()]);
 
       if (!aeJson.ok) throw new Error(aeJson.error || "Erreur HubSpot (AE)");
       if (!bdrJson.ok) throw new Error(bdrJson.error || "Erreur HubSpot (BDR)");
+      if (!pmJson.ok) throw new Error(pmJson.error || "Erreur HubSpot (PM)");
 
       setLiveData(prev => ({ ...prev, [key]: { members: Object.entries(aeJson.members).map(([id, deals]) => ({ id, deals })) } }));
       setLiveBdrData(prev => ({ ...prev, [key]: { members: Object.entries(bdrJson.members).map(([id, deals]) => ({ id, deals })) } }));
+      setLivePmData(prev => ({ ...prev, [key]: { members: Object.entries(pmJson.members).map(([id, deals]) => ({ id, deals })) } }));
       setLastRefresh(new Date());
       setFlashMsg(`Donnees a jour · ${payLbl}`);
     } catch(e) {
@@ -741,6 +783,12 @@ export default function App() {
         <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10, marginTop: 24 }}>BDRs</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           {bdrMembers.map(m => <MemberCard key={m.id} member={m} />)}
+        </div>
+
+        {/* PM Cards */}
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10, marginTop: 24 }}>Partnership Managers</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          {pmMembers.map(m => <MemberCard key={m.id} member={m} />)}
         </div>
 
         {/* Deals Table */}
