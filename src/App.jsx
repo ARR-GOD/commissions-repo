@@ -10,9 +10,14 @@ const TEAM_CONFIG = [
   { id: "alice",    name: "Alice",    fullName: "Alice Nageotte",         role: "AE",           quota: 5000,  annualVariable: 50000, ownerId: "2061466682", slackId: "U07EW7V3CPQ" },
   { id: "francois", name: "François", fullName: "François Malo Jamin",    role: "AE",           quota: 5000,  annualVariable: 25000, ownerId: "32042772",   slackId: "U0AB464R2RK" },
   { id: "raphael",  name: "Raphaël",  fullName: "Raphaël Angelitti",      role: "Head of Sales",quota: 15000, annualVariable: 40000, ownerId: "1002574007", slackId: "U07FFGM4TUZ", isTeamQuota: true },
+  // BDRs
+  { id: "sacha",    name: "Sacha",    fullName: "Sacha Fernez",           role: "BDR",          quotaSQLs: 20, annualVariable: 15000, genereParId: "1919375613", slackId: "SACHA_SLACK_ID" },
+  { id: "emilio",   name: "Emilio",   fullName: "Emilio Sallier",         role: "BDR",          quotaSQLs: 10, annualVariable: 15000, genereParId: "30082998",   slackId: "EMILIO_SLACK_ID" },
+  { id: "oscar",    name: "Oscar",    fullName: "Oscar Mcdonald",         role: "BDR",          quotaSQLs: 20, annualVariable: 18000, genereParId: "29457764",   slackId: "OSCAR_SLACK_ID" },
+  { id: "illan",    name: "Illan",    fullName: "Ilan Brillard",          role: "BDR",          quotaSQLs: 20, annualVariable: 12000, genereParId: "31730069",   slackId: "ILLAN_SLACK_ID" },
 ];
 
-// ─── DONNÉES HUBSPOT ──────────────────────────────────────────────────────
+// ─── DONNÉES HUBSPOT (AE) ────────────────────────────────────────────────
 const HUBSPOT_DATA = {
   "2025-12": {
     members: [
@@ -31,6 +36,9 @@ const HUBSPOT_DATA = {
     ]
   },
 };
+
+// ─── DONNÉES HUBSPOT (BDR) ───────────────────────────────────────────────
+const HUBSPOT_BDR_DATA = {};
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────
 const eur2 = n => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -59,21 +67,35 @@ function paymentLabel(salaryYear, salaryMonth) {
   return `${MONTHS_FR[m-1]} ${y}`;
 }
 
-function compute(salaryYear, salaryMonth, data = HUBSPOT_DATA) {
+function compute(salaryYear, salaryMonth, aeData = HUBSPOT_DATA, bdrData = HUBSPOT_BDR_DATA) {
   const key = paymentKey(salaryYear, salaryMonth);
-  const raw = data[key];
+  const rawAE  = aeData[key];
+  const rawBDR = bdrData[key];
+
   return TEAM_CONFIG.map(cfg => {
-    const rawMember = raw?.members.find(m => m.id === cfg.id);
-    const deals = rawMember?.deals || [];
     const monthlyMax = cfg.annualVariable / 12;
+
+    if (cfg.role === "BDR") {
+      const rawMember = rawBDR?.members?.find(m => m.id === cfg.id);
+      const deals = rawMember?.deals || [];
+      const sqlCount = deals.length;
+      const att = sqlCount / cfg.quotaSQLs;
+      return { ...cfg, deals, sqlCount, monthlyMax, att, commission: att * monthlyMax, hasData: !!rawBDR };
+    }
+
+    // AE or Head of Sales
+    const rawMember = rawAE?.members?.find(m => m.id === cfg.id);
+    const deals = rawMember?.deals || [];
     const mrr = deals.reduce((s, d) => s + d.amount, 0);
-    return { ...cfg, deals, mrr, monthlyMax, att: 0, commission: 0, hasData: !!raw };
+    return { ...cfg, deals, mrr, monthlyMax, att: 0, commission: 0, hasData: !!rawAE };
   }).map((m, _, arr) => {
+    if (m.role === "BDR") return m; // already computed
     if (!m.isTeamQuota) {
       const att = m.mrr / m.quota;
       return { ...m, att, commission: att * m.monthlyMax };
     }
-    const teamMRR = arr.filter(x => !x.isTeamQuota).reduce((s, x) => s + x.mrr, 0);
+    // Head of Sales — team MRR = AE only (not BDR)
+    const teamMRR = arr.filter(x => x.role === "AE").reduce((s, x) => s + x.mrr, 0);
     const att = teamMRR / m.quota;
     return { ...m, mrr: teamMRR, att, commission: att * m.monthlyMax };
   });
@@ -82,6 +104,14 @@ function compute(salaryYear, salaryMonth, data = HUBSPOT_DATA) {
 function slackMsg(member, salaryYear, salaryMonth, aeMembers) {
   const salLbl = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
   const payLbl = paymentLabel(salaryYear, salaryMonth);
+
+  if (member.role === "BDR") {
+    const dealLines = member.deals.length === 0
+      ? "  _Aucun deal qualifie ce mois-ci._"
+      : member.deals.map(d => `  • ${d.name} (${d.dateQualified})`).join("\n");
+    return `👋 Bonjour *${member.name}*,\n\nVoici le recapitulatif de tes commissions pour le salaire de *${salLbl}*, base sur les deals qualifies en *${payLbl}*.\n\n*Deals qualifies :*\n${dealLines}\n\n*Nombre de SQLs* : ${member.sqlCount}\n*Atteinte quota* : ${pct(member.att)} (quota ${member.quotaSQLs} SQLs/mois)\n*Commission* : *${eurR(member.commission)}*\n\nMerci de confirmer que ces chiffres te semblent corrects. En cas d'erreur, contacte-moi directement. ✅`;
+  }
+
   if (!member.isTeamQuota) {
     const dealLines = member.deals.length === 0
       ? "  _Aucun paiement reçu ce mois-ci._"
@@ -165,6 +195,8 @@ function MemberCard({ member }) {
   const color  = attColor(member.att);
   const bg     = attBg(member.att);
   const border = attBorder(member.att);
+  const isBDR  = member.role === "BDR";
+
   return (
     <div style={{
       background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16,
@@ -189,8 +221,17 @@ function MemberCard({ member }) {
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: 12, background: bg, border: `1px solid ${border}`, color, padding: "4px 12px", borderRadius: 20, fontWeight: 600 }}>{pct(member.att)}</span>
-        <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>{eur2(member.mrr)} MRR{member.isTeamQuota ? " equipe" : ""}</span>
-        <span style={{ fontSize: 12, color: "#9ca3af" }}>/ {eurR(member.quota)}</span>
+        {isBDR ? (
+          <>
+            <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>{member.sqlCount} SQL{member.sqlCount > 1 ? "s" : ""}</span>
+            <span style={{ fontSize: 12, color: "#9ca3af" }}>/ {member.quotaSQLs} SQLs</span>
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>{eur2(member.mrr)} MRR{member.isTeamQuota ? " equipe" : ""}</span>
+            <span style={{ fontSize: 12, color: "#9ca3af" }}>/ {eurR(member.quota)}</span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -201,17 +242,23 @@ const TH = { padding: "12px 18px", textAlign: "left", fontSize: 11, letterSpacin
 const TD = { padding: "12px 18px", fontSize: 14, color: "#374151", borderBottom: "1px solid #f9fafb", verticalAlign: "middle" };
 
 function DealsTable({ members }) {
-  const aeMembers = members.filter(m => !m.isTeamQuota);
-  const raphael   = members.find(m => m.isTeamQuota);
-  const tabs = [...aeMembers.map(m => ({ id: m.id, label: m.name, type: "ae", member: m })),
-                 { id: "raphael", label: "Raphael", type: "team", member: raphael, aeMembers }];
-  const [activeTab, setActiveTab] = useState(tabs[0].id);
-  const active = tabs.find(t => t.id === activeTab);
+  const aeMembers  = members.filter(m => m.role === "AE");
+  const bdrMembers = members.filter(m => m.role === "BDR");
+  const headOfSales = members.find(m => m.isTeamQuota);
+
+  const tabs = [
+    ...aeMembers.map(m => ({ id: m.id, label: m.name, type: "ae", member: m })),
+    { id: "raphael", label: "Raphaël", type: "team", member: headOfSales, aeMembers },
+    ...bdrMembers.map(m => ({ id: m.id, label: m.name, type: "bdr", member: m })),
+  ];
+  const [activeTab, setActiveTab] = useState(tabs[0]?.id);
+  const active = tabs.find(t => t.id === activeTab) || tabs[0];
 
   return (
     <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, overflow: "hidden", marginTop: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-      <div style={{ display: "flex", borderBottom: "1px solid #f3f4f6", padding: "0 12px", background: "#fafafa" }}>
-        {tabs.map(t => {
+      <div style={{ display: "flex", borderBottom: "1px solid #f3f4f6", padding: "0 12px", background: "#fafafa", overflowX: "auto" }}>
+        {/* AE tabs */}
+        {tabs.filter(t => t.type === "ae" || t.type === "team").map(t => {
           const isActive = t.id === activeTab;
           return (
             <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
@@ -220,7 +267,7 @@ function DealsTable({ members }) {
               color: isActive ? "#111827" : "#9ca3af", fontSize: 14,
               fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: FONT,
               display: "flex", alignItems: "center", gap: 8, marginBottom: -1,
-              transition: "color 0.15s",
+              transition: "color 0.15s", whiteSpace: "nowrap",
             }}>
               {t.label}
               <span style={{
@@ -233,12 +280,43 @@ function DealsTable({ members }) {
             </button>
           );
         })}
+        {/* Separator */}
+        {bdrMembers.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", padding: "0 8px" }}>
+            <div style={{ width: 1, height: 20, background: "#e5e7eb" }} />
+          </div>
+        )}
+        {/* BDR tabs */}
+        {tabs.filter(t => t.type === "bdr").map(t => {
+          const isActive = t.id === activeTab;
+          return (
+            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+              padding: "14px 18px", background: "none", border: "none",
+              borderBottom: isActive ? `2px solid ${PURPLE}` : "2px solid transparent",
+              color: isActive ? "#111827" : "#9ca3af", fontSize: 14,
+              fontWeight: isActive ? 600 : 400, cursor: "pointer", fontFamily: FONT,
+              display: "flex", alignItems: "center", gap: 8, marginBottom: -1,
+              transition: "color 0.15s", whiteSpace: "nowrap",
+            }}>
+              {t.label}
+              <span style={{
+                fontSize: 12, padding: "2px 10px", borderRadius: 20, fontWeight: 600,
+                background: isActive ? PURPLE_LIGHT : "#f3f4f6",
+                color: isActive ? PURPLE : "#9ca3af",
+              }}>
+                {t.member.sqlCount} SQL{t.member.sqlCount !== 1 ? "s" : ""}
+              </span>
+            </button>
+          );
+        })}
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>
             {active.type === "ae"
               ? <><th style={TH}>Deal</th><th style={TH}>Date paiement</th><th style={{...TH,textAlign:"right"}}>Montant MRR</th><th style={{...TH,textAlign:"right"}}>% quota</th></>
+              : active.type === "bdr"
+              ? <><th style={TH}>Deal</th><th style={TH}>Date qualification</th><th style={{...TH,textAlign:"center"}}>SQL</th></>
               : <><th style={TH}>AE</th><th style={TH}>Deals</th><th style={{...TH,textAlign:"right"}}>MRR genere</th><th style={{...TH,textAlign:"right"}}>Atteinte</th></>
             }
           </tr>
@@ -261,6 +339,23 @@ function DealsTable({ members }) {
                     <td style={{...TD,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}></td>
                     <td style={{...TD,textAlign:"right",color:"#111827",fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>{eur2(active.member.mrr)}</td>
                     <td style={{...TD,textAlign:"right",color:attColor(active.member.att),fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>{pct(active.member.att)}</td>
+                  </tr>
+                </>
+          ) : active.type === "bdr" ? (
+            active.member.deals.length === 0
+              ? <tr><td colSpan={3} style={{...TD,color:"#d1d5db",fontStyle:"italic",textAlign:"center",padding:"40px",fontSize:14}}>Aucun deal qualifie ce mois-ci</td></tr>
+              : <>
+                  {active.member.deals.map((d,i) => (
+                    <tr key={i} style={{ transition: "background 0.15s" }} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <td style={{...TD,color:"#111827",fontWeight:500}}>{d.name}</td>
+                      <td style={{...TD,color:"#6b7280"}}>{d.dateQualified}</td>
+                      <td style={{...TD,textAlign:"center",color:"#059669",fontWeight:600}}>✓</td>
+                    </tr>
+                  ))}
+                  <tr style={{background:"#fafafa"}}>
+                    <td style={{...TD,color:"#111827",fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>Total</td>
+                    <td style={{...TD,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}></td>
+                    <td style={{...TD,textAlign:"center",color:attColor(active.member.att),fontWeight:700,borderTop:"1px solid #e5e7eb",borderBottom:"none"}}>{active.member.sqlCount} SQL{active.member.sqlCount !== 1 ? "s" : ""}</td>
                   </tr>
                 </>
           ) : (
@@ -317,22 +412,38 @@ function PayfitBlock({ members }) {
 
 // ─── SLACK SECTION (per-rep) ──────────────────────────────────────────────
 function SlackSection({ members, salaryYear, salaryMonth, onSendOne }) {
-  const aeMembers = members.filter(m => !m.isTeamQuota);
+  const aeMembers = members.filter(m => m.role === "AE");
   const previews = members.map(m => ({
     ...m,
     msg: slackMsg(m, salaryYear, salaryMonth, aeMembers)
   }));
+
+  const aePreviews  = previews.filter(m => m.role === "AE" || m.isTeamQuota);
+  const bdrPreviews = previews.filter(m => m.role === "BDR");
 
   return (
     <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: "22px 24px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", marginTop: 20 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>
         Messages Slack
       </div>
+      {/* AE + Head of Sales */}
+      <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Account Executives</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {previews.map(m => (
+        {aePreviews.map(m => (
           <SlackCard key={m.id} member={m} onSendOne={onSendOne} />
         ))}
       </div>
+      {/* BDRs */}
+      {bdrPreviews.length > 0 && (
+        <>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, marginTop: 20 }}>BDRs</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {bdrPreviews.map(m => (
+              <SlackCard key={m.id} member={m} onSendOne={onSendOne} />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -354,8 +465,6 @@ function SlackCard({ member, onSendOne }) {
     }
     setSending(false);
   };
-
-  const color = attColor(member.att);
 
   return (
     <div style={{
@@ -462,6 +571,7 @@ const now = new Date();
 export default function App() {
   const [loggedIn,    setLoggedIn]   = useState(false);
   const [liveData,    setLiveData]   = useState({});
+  const [liveBdrData, setLiveBdrData]= useState({});
   const [salaryMonth, setSalaryMonth]= useState(now.getMonth() + 1);
   const [salaryYear,  setSalaryYear] = useState(now.getFullYear());
   const [slackLog,    setSlackLog]   = useState([]);
@@ -471,11 +581,16 @@ export default function App() {
 
   if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />;
 
-  const mergedData = { ...HUBSPOT_DATA, ...liveData };
-  const members   = compute(salaryYear, salaryMonth, mergedData);
-  const hasData   = !!(mergedData)[paymentKey(salaryYear, salaryMonth)];
-  const payLbl    = paymentLabel(salaryYear, salaryMonth);
-  const salLbl    = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
+  const mergedAeData  = { ...HUBSPOT_DATA, ...liveData };
+  const mergedBdrData = { ...HUBSPOT_BDR_DATA, ...liveBdrData };
+  const members   = compute(salaryYear, salaryMonth, mergedAeData, mergedBdrData);
+  const aeMembers  = members.filter(m => m.role === "AE" || m.isTeamQuota);
+  const bdrMembers = members.filter(m => m.role === "BDR");
+  const hasAeData  = !!(mergedAeData)[paymentKey(salaryYear, salaryMonth)];
+  const hasBdrData = !!(mergedBdrData)[paymentKey(salaryYear, salaryMonth)];
+  const hasData    = hasAeData || hasBdrData;
+  const payLbl     = paymentLabel(salaryYear, salaryMonth);
+  const salLbl     = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -483,10 +598,18 @@ export default function App() {
     try {
       const key = paymentKey(salaryYear, salaryMonth);
       const [payYear, payMonth] = key.split("-").map(Number);
-      const res = await fetch(`/api/hubspot-deals?year=${payYear}&month=${payMonth}`);
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error || "Erreur HubSpot");
-      setLiveData(prev => ({ ...prev, [key]: { members: Object.entries(json.members).map(([id, deals]) => ({ id, deals })) } }));
+
+      const [aeRes, bdrRes] = await Promise.all([
+        fetch(`/api/hubspot-deals?year=${payYear}&month=${payMonth}`),
+        fetch(`/api/hubspot-bdr?year=${payYear}&month=${payMonth}`),
+      ]);
+      const [aeJson, bdrJson] = await Promise.all([aeRes.json(), bdrRes.json()]);
+
+      if (!aeJson.ok) throw new Error(aeJson.error || "Erreur HubSpot (AE)");
+      if (!bdrJson.ok) throw new Error(bdrJson.error || "Erreur HubSpot (BDR)");
+
+      setLiveData(prev => ({ ...prev, [key]: { members: Object.entries(aeJson.members).map(([id, deals]) => ({ id, deals })) } }));
+      setLiveBdrData(prev => ({ ...prev, [key]: { members: Object.entries(bdrJson.members).map(([id, deals]) => ({ id, deals })) } }));
       setLastRefresh(new Date());
       setFlashMsg(`Donnees a jour · ${payLbl}`);
     } catch(e) {
@@ -608,9 +731,16 @@ export default function App() {
           </div>
         </div>
 
-        {/* Cards */}
+        {/* AE Cards */}
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Account Executives</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          {members.map(m => <MemberCard key={m.id} member={m} />)}
+          {aeMembers.map(m => <MemberCard key={m.id} member={m} />)}
+        </div>
+
+        {/* BDR Cards */}
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10, marginTop: 24 }}>BDRs</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          {bdrMembers.map(m => <MemberCard key={m.id} member={m} />)}
         </div>
 
         {/* Deals Table */}

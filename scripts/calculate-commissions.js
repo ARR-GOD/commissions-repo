@@ -1,13 +1,28 @@
 const fs = require('fs');
 const fetch = require('node-fetch');
 
-// ─── CONFIGURATION ÉQUIPE ────────────────────────────────────────────────
+// ─── CONFIGURATION ÉQUIPE (AE) ─────────────────────────────────────────
 const TEAM = [
   { id: 'matthew',  ownerId: '1818638834' },
   { id: 'alice',    ownerId: '2061466682' },
   { id: 'francois', ownerId: '32042772'   },
   { id: 'raphael',  ownerId: '1002574007' },
 ];
+
+// ─── CONFIGURATION BDR ──────────────────────────────────────────────────
+const BDR_TEAM = [
+  { id: 'sacha',  genereParId: '1919375613' },
+  { id: 'emilio', genereParId: '30082998'   },
+  { id: 'oscar',  genereParId: '29457764'   },
+  { id: 'illan',  genereParId: '31730069'   },
+];
+
+const BDR_MAP = {
+  '1919375613': 'sacha',
+  '30082998':   'emilio',
+  '29457764':   'oscar',
+  '31730069':   'illan',
+};
 
 // ─── HELPERS DATE ────────────────────────────────────────────────────────
 
@@ -55,7 +70,7 @@ function getPaymentMonth(salaryYear, salaryMonth) {
 
 const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
-// ─── HUBSPOT FETCH ───────────────────────────────────────────────────────
+// ─── HUBSPOT FETCH (AE) ─────────────────────────────────────────────────
 
 async function fetchDealsForOwner(ownerId, payYear, payMonth) {
   const start = `${payYear}-${padMonth(payMonth)}-01`;
@@ -102,9 +117,69 @@ async function fetchDealsForOwner(ownerId, payYear, payMonth) {
   });
 }
 
+// ─── HUBSPOT FETCH (BDR) ────────────────────────────────────────────────
+
+async function fetchBdrDeals(payYear, payMonth) {
+  const start = new Date(payYear, payMonth - 1, 1).getTime();
+  const end   = new Date(payYear, payMonth, 0, 23, 59, 59).getTime();
+
+  const body = {
+    filterGroups: [{
+      filters: [
+        { propertyName: 'hs_v2_date_entered_presentationscheduled', operator: 'GTE', value: String(start) },
+        { propertyName: 'hs_v2_date_entered_presentationscheduled', operator: 'LTE', value: String(end) },
+        { propertyName: 'genere_par__', operator: 'IN', values: Object.keys(BDR_MAP) },
+      ]
+    }],
+    properties: ['dealname', 'genere_par__', 'hs_v2_date_entered_presentationscheduled'],
+    limit: 100,
+  };
+
+  const res = await fetch('https://api.hubapi.com/crm/v3/objects/deals/search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.HUBSPOT_TOKEN}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`HubSpot BDR error: ${res.status} — ${err}`);
+  }
+
+  const data = await res.json();
+
+  // Group by BDR member
+  const members = Object.fromEntries(BDR_TEAM.map(b => [b.id, []]));
+
+  for (const deal of (data.results || [])) {
+    const genPar = deal.properties.genere_par__;
+    const memberId = BDR_MAP[genPar];
+    if (!memberId) continue;
+
+    const rawDate = deal.properties.hs_v2_date_entered_presentationscheduled || '';
+    const dateObj = new Date(isNaN(rawDate) ? rawDate : parseInt(rawDate));
+    const dateStr = !isNaN(dateObj.getTime())
+      ? `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`
+      : '—';
+
+    members[memberId].push({
+      name: deal.properties.dealname.trim(),
+      dateQualified: dateStr,
+    });
+  }
+
+  return BDR_TEAM.map(b => ({
+    id: b.id,
+    deals: members[b.id],
+  }));
+}
+
 // ─── UPDATE App.jsx ───────────────────────────────────────────────────────
 
-function buildDataEntry(members, key) {
+function buildAeDataEntry(members, key) {
   const lines = members.map(m => {
     const dealsStr = m.deals.length === 0
       ? '[]'
@@ -114,25 +189,66 @@ function buildDataEntry(members, key) {
   return `  "${key}": {\n    members: [\n${lines.join(',\n')},\n    ]\n  }`;
 }
 
-function updateAppJsx(newKey, membersData) {
+function buildBdrDataEntry(members, key) {
+  const lines = members.map(m => {
+    const dealsStr = m.deals.length === 0
+      ? '[]'
+      : `[${m.deals.map(d => `{ name: "${d.name}", dateQualified: "${d.dateQualified}" }`).join(', ')}]`;
+    return `      { id: "${m.id}", deals: ${dealsStr} }`;
+  });
+  return `  "${key}": {\n    members: [\n${lines.join(',\n')},\n    ]\n  }`;
+}
+
+function updateAppJsx(newKey, aeMembersData, bdrMembersData) {
   const appPath = 'src/App.jsx';
   let content = fs.readFileSync(appPath, 'utf8');
 
-  // Si la clé existe déjà, on la remplace; sinon on l'ajoute avant la fermeture
-  const newEntry = buildDataEntry(membersData, newKey);
+  // ─── Update HUBSPOT_DATA (AE) ───
+  const aeEntry = buildAeDataEntry(aeMembersData, newKey);
+  const aeKeyPattern = new RegExp(`  "${newKey}": \\{[\\s\\S]*?\\n  \\}`, 'm');
 
-  const keyPattern = new RegExp(`  "${newKey}": \\{[\\s\\S]*?\\n  \\}`, 'm');
-
-  if (keyPattern.test(content)) {
-    // Remplace l'entrée existante
-    content = content.replace(keyPattern, newEntry);
+  if (aeKeyPattern.test(content)) {
+    content = content.replace(aeKeyPattern, aeEntry);
   } else {
-    // Ajoute avant le };  final du HUBSPOT_DATA
-    content = content.replace(/(\n};)\n\n\/\/ ─── HELPERS/, `\n${newEntry},\n};\n\n// ─── HELPERS`);
+    // Add before the closing }; of HUBSPOT_DATA
+    content = content.replace(
+      /(\n};)\n\n\/\/ ─── DONNÉES HUBSPOT \(BDR\)/,
+      `\n${aeEntry},\n};\n\n// ─── DONNÉES HUBSPOT (BDR)`
+    );
+  }
+
+  // ─── Update HUBSPOT_BDR_DATA ───
+  const bdrEntry = buildBdrDataEntry(bdrMembersData, newKey);
+  const bdrKeyPattern = new RegExp(`  "${newKey}": \\{[\\s\\S]*?\\n  \\}`, 'm');
+
+  // Check if HUBSPOT_BDR_DATA is empty ({}) or has existing data
+  if (content.includes('const HUBSPOT_BDR_DATA = {};')) {
+    // Replace empty object with populated one
+    content = content.replace(
+      'const HUBSPOT_BDR_DATA = {};',
+      `const HUBSPOT_BDR_DATA = {\n${bdrEntry},\n};`
+    );
+  } else if (bdrKeyPattern.test(content)) {
+    // Key exists in BDR data — replace it
+    // We need a more specific pattern to target HUBSPOT_BDR_DATA section
+    // Find position of HUBSPOT_BDR_DATA and replace within it
+    const bdrStart = content.indexOf('const HUBSPOT_BDR_DATA = {');
+    if (bdrStart !== -1) {
+      const bdrEnd = content.indexOf('};', bdrStart) + 2;
+      let bdrSection = content.substring(bdrStart, bdrEnd);
+      bdrSection = bdrSection.replace(bdrKeyPattern, bdrEntry);
+      content = content.substring(0, bdrStart) + bdrSection + content.substring(bdrEnd);
+    }
+  } else {
+    // Add new key to HUBSPOT_BDR_DATA
+    content = content.replace(
+      /(const HUBSPOT_BDR_DATA = \{[\s\S]*?)(};)\n\n\/\/ ─── HELPERS/,
+      `$1${bdrEntry},\n};\n\n// ─── HELPERS`
+    );
   }
 
   fs.writeFileSync(appPath, content, 'utf8');
-  console.log(`✅ App.jsx mis à jour avec la clé ${newKey}`);
+  console.log(`✅ App.jsx mis à jour avec la clé ${newKey} (AE + BDR)`);
 }
 
 // ─── GITHUB OUTPUTS ──────────────────────────────────────────────────────
@@ -184,18 +300,26 @@ async function main() {
 
   console.log(`💰 Salaire : ${salaryLabel} | Paiements : ${paymentLabel} (clé HubSpot: ${payKey})`);
 
-  // Fetch HubSpot pour chaque membre
-  const membersData = [];
+  // ─── Fetch AE deals ───
+  console.log('\n📊 AE Deals :');
+  const aeMembersData = [];
   for (const member of TEAM) {
     console.log(`  → Fetching deals pour ${member.id} (owner ${member.ownerId})...`);
     const deals = await fetchDealsForOwner(member.ownerId, payYear, payMonth);
     const total = deals.reduce((s, d) => s + d.amount, 0);
     console.log(`     ${deals.length} deal(s) — ${total.toFixed(2)} €`);
-    membersData.push({ id: member.id, deals });
+    aeMembersData.push({ id: member.id, deals });
+  }
+
+  // ─── Fetch BDR deals ───
+  console.log('\n📊 BDR Deals (SQLs) :');
+  const bdrMembersData = await fetchBdrDeals(payYear, payMonth);
+  for (const m of bdrMembersData) {
+    console.log(`  → ${m.id}: ${m.deals.length} SQL(s)`);
   }
 
   // Mise à jour App.jsx
-  updateAppJsx(payKey, membersData);
+  updateAppJsx(payKey, aeMembersData, bdrMembersData);
 
   // Outputs pour GitHub Actions
   setOutput('should_update', 'true');
