@@ -18,9 +18,8 @@ export default async function handler(req, res) {
   try {
     // Recherche des deals avec paiement reçu dans la période, filtrés par genere_par__
     const y = parseInt(year), m = parseInt(month);
-    const startDate = `${y}-${String(m).padStart(2,"0")}-01`;
-    const lastDay = new Date(y, m, 0).getDate();
-    const endDate = `${y}-${String(m).padStart(2,"0")}-${lastDay}`;
+    const start = new Date(y, m - 1, 1).getTime();
+    const end   = new Date(y, m, 0, 23, 59, 59).getTime();
 
     const searchRes = await fetch("https://api.hubapi.com/crm/v3/objects/deals/search", {
       method: "POST",
@@ -31,8 +30,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         filterGroups: PM_IDS.map(id => ({
           filters: [
-            { propertyName: "date_de_paiement", operator: "GTE", value: startDate },
-            { propertyName: "date_de_paiement", operator: "LTE", value: endDate },
+            { propertyName: "date_de_paiement", operator: "GTE", value: String(start) },
+            { propertyName: "date_de_paiement", operator: "LTE", value: String(end) },
             { propertyName: "genere_par__", operator: "EQ", value: id },
           ]
         })),
@@ -42,7 +41,7 @@ export default async function handler(req, res) {
     });
 
     const data = await searchRes.json();
-    if (!searchRes.ok) return res.status(500).json({ error: data.message || "HubSpot error", details: data, status: searchRes.status });
+    if (!searchRes.ok) return res.status(500).json({ error: data.message || "HubSpot error" });
 
     // Grouper par PM
     const members = Object.fromEntries(Object.values(PM_MAP).map(id => [id, []]));
