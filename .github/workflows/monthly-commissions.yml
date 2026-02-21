@@ -1,0 +1,61 @@
+name: Calcul commissions mensuel
+
+on:
+  # Déclenchement automatique : tous les jours à 8h pour vérifier si c'est l'avant-dernier jour ouvré
+  schedule:
+    - cron: '0 8 * * 1-5'  # Lun-Ven à 8h UTC (9h Paris hiver, 10h été)
+
+  # Déclenchement manuel depuis GitHub si besoin
+  workflow_dispatch:
+    inputs:
+      salary_year:
+        description: 'Année du salaire (ex: 2026)'
+        required: false
+        default: ''
+      salary_month:
+        description: 'Mois du salaire 1-12 (ex: 3 pour mars)'
+        required: false
+        default: ''
+
+jobs:
+  check-and-calculate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install node-fetch@2
+
+      - name: Check if avant-dernier jour ouvré + fetch HubSpot + update App.jsx
+        id: calculate
+        env:
+          HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
+          SALARY_YEAR_OVERRIDE: ${{ github.event.inputs.salary_year }}
+          SALARY_MONTH_OVERRIDE: ${{ github.event.inputs.salary_month }}
+        run: node scripts/calculate-commissions.js
+
+      - name: Commit updated App.jsx
+        if: steps.calculate.outputs.should_update == 'true'
+        run: |
+          git config user.name "Commissions Bot"
+          git config user.email "bot@loyoly.io"
+          git add src/App.jsx
+          git commit -m "💰 Commissions ${{ steps.calculate.outputs.salary_label }} — mise à jour automatique"
+          git push
+
+      - name: Summary
+        if: steps.calculate.outputs.should_update == 'true'
+        run: |
+          echo "### ✅ Commissions mises à jour" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Mois de salaire :** ${{ steps.calculate.outputs.salary_label }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Paiements de :** ${{ steps.calculate.outputs.payment_label }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Vercel redéploie automatiquement. Pense à valider et envoyer les Slack. 🚀" >> $GITHUB_STEP_SUMMARY
