@@ -196,13 +196,13 @@ async function fetchPmDeals(payYear, payMonth) {
   const end = `${payYear}-${padMonth(payMonth)}-${lastDay}`;
 
   const body = {
-    filterGroups: [{
+    filterGroups: Object.keys(PM_MAP).map(id => ({
       filters: [
         { propertyName: 'date_de_paiement', operator: 'GTE', value: start },
         { propertyName: 'date_de_paiement', operator: 'LTE', value: end },
-        { propertyName: 'genere_par__', operator: 'IN', values: Object.keys(PM_MAP) },
+        { propertyName: 'genere_par__', operator: 'EQ', value: id },
       ]
-    }],
+    })),
     properties: ['dealname', 'amount', 'date_de_paiement', 'genere_par__'],
     limit: 100,
   };
