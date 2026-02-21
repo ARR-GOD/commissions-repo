@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────
 const PASSWORD = "loyoly2026";
@@ -615,6 +615,465 @@ function SlackCard({ member, onSendOne, hideNames }) {
   );
 }
 
+// ─── DRAWER ICONS ────────────────────────────────────────────────────────
+const IconCommissions = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="3" width="20" height="18" rx="2"/><path d="M12 8v8"/><path d="M8 12h8"/>
+  </svg>
+);
+const IconAnalytics = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
+  </svg>
+);
+const IconMenu = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+  </svg>
+);
+const IconClose = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+);
+
+// ─── SIDEBAR DRAWER ──────────────────────────────────────────────────────
+function Drawer({ isOpen, onClose, currentPage, onNavigate }) {
+  const items = [
+    { id: "commissions", label: "Commissions", icon: <IconCommissions /> },
+    { id: "analytics",   label: "Analytics",   icon: <IconAnalytics /> },
+  ];
+
+  return (
+    <>
+      {/* Overlay */}
+      {isOpen && (
+        <div
+          onClick={onClose}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)",
+            zIndex: 90, backdropFilter: "blur(2px)",
+            transition: "opacity 0.3s",
+          }}
+        />
+      )}
+      {/* Drawer panel */}
+      <div style={{
+        position: "fixed", top: 0, left: 0, bottom: 0,
+        width: 260, background: "#fff",
+        borderRight: "1px solid #e5e7eb",
+        transform: isOpen ? "translateX(0)" : "translateX(-100%)",
+        transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        zIndex: 100, display: "flex", flexDirection: "column",
+        boxShadow: isOpen ? "4px 0 24px rgba(0,0,0,0.08)" : "none",
+      }}>
+        {/* Drawer header */}
+        <div style={{
+          padding: "20px 20px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
+          borderBottom: "1px solid #f3f4f6",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, background: PURPLE, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#fff", fontWeight: 700 }}>L</div>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#111827", letterSpacing: -0.3 }}>Loyoly</span>
+          </div>
+          <button onClick={onClose} style={{
+            background: "none", border: "none", cursor: "pointer", color: "#9ca3af",
+            padding: 4, borderRadius: 6, display: "flex", alignItems: "center",
+          }}>
+            <IconClose />
+          </button>
+        </div>
+
+        {/* Nav items */}
+        <div style={{ padding: "12px 12px", flex: 1 }}>
+          {items.map(item => {
+            const active = currentPage === item.id;
+            return (
+              <button key={item.id} onClick={() => { onNavigate(item.id); onClose(); }} style={{
+                width: "100%", display: "flex", alignItems: "center", gap: 12,
+                padding: "12px 14px", borderRadius: 10, border: "none",
+                background: active ? PURPLE_LIGHT : "transparent",
+                color: active ? PURPLE : "#6b7280",
+                fontSize: 14, fontWeight: active ? 600 : 500,
+                cursor: "pointer", fontFamily: FONT,
+                transition: "all 0.15s", marginBottom: 4,
+              }}
+              onMouseEnter={e => { if (!active) e.currentTarget.style.background = "#f9fafb"; }}
+              onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "16px 20px", borderTop: "1px solid #f3f4f6", fontSize: 11, color: "#d1d5db" }}>
+          Loyoly Commissions v2.0
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── SVG BAR CHART ───────────────────────────────────────────────────────
+function BarChart({ data, width = 500, height = 260, barColor = PURPLE, currency = "EUR" }) {
+  if (!data || data.length === 0) return null;
+  const maxVal = Math.max(...data.map(d => d.value), 1);
+  const barW = Math.min(36, (width - 60) / data.length - 8);
+  const chartH = height - 50;
+  const startX = 10;
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible" }}>
+      {/* Grid lines */}
+      {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
+        <g key={i}>
+          <line x1={startX} y1={chartH * (1 - pct) + 10} x2={width - 10} y2={chartH * (1 - pct) + 10} stroke="#f3f4f6" strokeWidth="1" />
+          <text x={0} y={chartH * (1 - pct) + 14} fill="#d1d5db" fontSize="9" fontFamily={FONT}>
+            {fmtCurrencyR(maxVal * pct, currency)}
+          </text>
+        </g>
+      ))}
+      {/* Bars */}
+      {data.map((d, i) => {
+        const barH = (d.value / maxVal) * chartH;
+        const x = startX + 50 + i * ((width - 60 - startX) / data.length) + ((width - 60 - startX) / data.length - barW) / 2;
+        const y = chartH - barH + 10;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={barW} height={barH} rx={4} fill={d.color || barColor} opacity="0.85" />
+            <text x={x + barW / 2} y={height - 6} textAnchor="middle" fill="#9ca3af" fontSize="10" fontFamily={FONT} fontWeight="500">
+              {d.label}
+            </text>
+            <text x={x + barW / 2} y={y - 6} textAnchor="middle" fill="#6b7280" fontSize="9" fontFamily={FONT} fontWeight="600">
+              {fmtCurrencyR(d.value, currency)}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── DONUT CHART ─────────────────────────────────────────────────────────
+function DonutChart({ segments, size = 160 }) {
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  if (total === 0) return null;
+  const cx = size / 2, cy = size / 2, r = size / 2 - 12, strokeW = 24;
+  const circumference = 2 * Math.PI * r;
+  let offset = 0;
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth={strokeW} />
+      {segments.map((seg, i) => {
+        const pct = seg.value / total;
+        const dash = pct * circumference;
+        const gap = circumference - dash;
+        const currentOffset = offset;
+        offset += dash;
+        return (
+          <circle key={i} cx={cx} cy={cy} r={r} fill="none"
+            stroke={seg.color} strokeWidth={strokeW}
+            strokeDasharray={`${dash} ${gap}`}
+            strokeDashoffset={-currentOffset}
+            transform={`rotate(-90 ${cx} ${cy})`}
+            style={{ transition: "stroke-dasharray 0.8s ease" }}
+          />
+        );
+      })}
+      <text x={cx} y={cy - 4} textAnchor="middle" fill="#111827" fontSize="22" fontWeight="700" fontFamily={FONT}>
+        {total}
+      </text>
+      <text x={cx} y={cy + 14} textAnchor="middle" fill="#9ca3af" fontSize="10" fontFamily={FONT}>
+        deals
+      </text>
+    </svg>
+  );
+}
+
+// ─── HORIZONTAL BAR (ATTAINMENT) ─────────────────────────────────────────
+function AttainmentBars({ data }) {
+  if (!data || data.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {data.map((d, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 70, fontSize: 12, fontWeight: 500, color: "#6b7280", textAlign: "right", flexShrink: 0 }}>{d.label}</div>
+          <div style={{ flex: 1, height: 20, background: "#f3f4f6", borderRadius: 10, overflow: "hidden", position: "relative" }}>
+            <div style={{
+              height: "100%", borderRadius: 10,
+              width: `${Math.min(d.value * 100, 100)}%`,
+              background: `linear-gradient(90deg, ${attColor(d.value)}, ${attColor(d.value)}cc)`,
+              transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)",
+            }} />
+          </div>
+          <div style={{ width: 52, fontSize: 12, fontWeight: 600, color: attColor(d.value), textAlign: "right", flexShrink: 0 }}>
+            {pct(d.value)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── KPI CARD ────────────────────────────────────────────────────────────
+function KpiCard({ label, value, sub, icon, color = PURPLE }) {
+  return (
+    <div style={{
+      background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16,
+      padding: "20px 22px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      display: "flex", flexDirection: "column", gap: 4,
+      transition: "box-shadow 0.2s, transform 0.2s",
+    }}
+    onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.08)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+    onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; e.currentTarget.style.transform = "translateY(0)"; }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: `${color}15`, display: "flex", alignItems: "center", justifyContent: "center", color, fontSize: 16 }}>
+          {icon}
+        </div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
+      </div>
+      <div style={{ fontSize: 26, fontWeight: 700, color: "#111827", letterSpacing: -0.5, lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ─── ANALYTICS PAGE ──────────────────────────────────────────────────────
+function AnalyticsPage({ members, salaryYear, salaryMonth, mergedAeData, mergedBdrData, mergedPmData, hideNames }) {
+  const salLbl = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
+  const payLbl = paymentLabel(salaryYear, salaryMonth);
+
+  const aeMembers  = members.filter(m => m.role === "AE" || m.isTeamQuota);
+  const bdrMembers = members.filter(m => m.role === "BDR");
+  const pmMembers  = members.filter(m => m.role === "PM");
+  const allIndividual = members.filter(m => !m.isTeamQuota);
+
+  // KPI values
+  const totalCommissions = allIndividual.reduce((s, m) => s + m.commission, 0);
+  const totalMRR         = members.filter(m => m.role === "AE").reduce((s, m) => s + m.mrr, 0);
+  const avgAtt           = allIndividual.length > 0 ? allIndividual.reduce((s, m) => s + m.att, 0) / allIndividual.length : 0;
+  const totalDeals       = allIndividual.reduce((s, m) => s + m.deals.length, 0);
+  const aboveQuota       = allIndividual.filter(m => m.att >= 1).length;
+
+  // Commission bar chart data
+  const commissionBars = allIndividual.map(m => ({
+    label: hideNames ? "•••" : (m.name.length > 6 ? m.name.slice(0,5) + "." : m.name),
+    value: m.commission,
+    color: m.role === "AE" ? PURPLE : m.role === "BDR" ? "#f59e0b" : "#06b6d4",
+  }));
+
+  // Attainment data
+  const attainmentData = allIndividual.map(m => ({
+    label: hideNames ? "•••••" : m.name,
+    value: m.att,
+  })).sort((a, b) => b.value - a.value);
+
+  // Donut data — deals per role
+  const donutSegments = [
+    { label: "AE", value: aeMembers.filter(m => !m.isTeamQuota).reduce((s, m) => s + m.deals.length, 0), color: PURPLE },
+    { label: "BDR", value: bdrMembers.reduce((s, m) => s + m.deals.length, 0), color: "#f59e0b" },
+    { label: "PM", value: pmMembers.reduce((s, m) => s + m.deals.length, 0), color: "#06b6d4" },
+  ];
+
+  // Multi-month trend data
+  const trendData = useMemo(() => {
+    const allKeys = new Set([
+      ...Object.keys(mergedAeData || {}),
+      ...Object.keys(mergedBdrData || {}),
+      ...Object.keys(mergedPmData || {}),
+    ]);
+    const sorted = [...allKeys].sort();
+    return sorted.map(key => {
+      const [tY, tM] = key.split("-").map(Number);
+      // Compute salary month from payment key: payment key = salary month - 1
+      const sM = tM + 1 > 12 ? 1 : tM + 1;
+      const sY = tM + 1 > 12 ? tY + 1 : tY;
+      const mems = compute(sY, sM, mergedAeData, mergedBdrData, mergedPmData);
+      const indiv = mems.filter(m => !m.isTeamQuota);
+      const totalComm = indiv.reduce((s, m) => s + m.commission, 0);
+      return {
+        label: `${MONTHS_FR[tM-1]?.slice(0,3) || "?"} ${String(tY).slice(2)}`,
+        value: totalComm,
+      };
+    });
+  }, [mergedAeData, mergedBdrData, mergedPmData]);
+
+  // Top performers
+  const topPerformers = [...allIndividual].sort((a, b) => b.att - a.att).slice(0, 3);
+
+  const CARD = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: "22px 24px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" };
+
+  return (
+    <div style={{ padding: "28px 32px", maxWidth: 1020, margin: "0 auto" }}>
+      {/* Title */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#111827", letterSpacing: -0.5 }}>Analytics</div>
+        <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 4 }}>
+          Salaire de {salLbl} · Paiements {payLbl}
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+        <KpiCard label="Total Commissions" value={eurR(totalCommissions)} sub={`${allIndividual.length} membres`} icon="💰" />
+        <KpiCard label="MRR Equipe (AE)" value={eurR(totalMRR)} sub={`${members.filter(m => m.role === "AE").reduce((s,m) => s + m.deals.length, 0)} deals`} icon="📈" color="#059669" />
+        <KpiCard label="Atteinte Moy." value={pct(avgAtt)} sub={`${aboveQuota}/${allIndividual.length} au-dessus du quota`} icon="🎯" color={attColor(avgAtt)} />
+        <KpiCard label="Deals Total" value={String(totalDeals)} sub="Tous roles confondus" icon="📊" color="#6366f1" />
+      </div>
+
+      {/* Row 1: Commissions chart + Donut */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 14, marginBottom: 14 }}>
+        {/* Commission by member */}
+        <div style={CARD}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>Commissions par membre</div>
+          <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#9ca3af" }}><span style={{ width: 8, height: 8, borderRadius: 2, background: PURPLE, display: "inline-block" }}/>AE</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#9ca3af" }}><span style={{ width: 8, height: 8, borderRadius: 2, background: "#f59e0b", display: "inline-block" }}/>BDR</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#9ca3af" }}><span style={{ width: 8, height: 8, borderRadius: 2, background: "#06b6d4", display: "inline-block" }}/>PM</span>
+          </div>
+          <BarChart data={commissionBars} width={600} height={240} />
+        </div>
+
+        {/* Deals donut */}
+        <div style={{ ...CARD, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 16, alignSelf: "flex-start" }}>Deals par role</div>
+          <DonutChart segments={donutSegments} size={150} />
+          <div style={{ display: "flex", gap: 16, marginTop: 16 }}>
+            {donutSegments.map((seg, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: seg.color }} />
+                <span style={{ fontSize: 12, color: "#6b7280" }}>{seg.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#111827" }}>{seg.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 2: Attainment + Top Performers */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+        {/* Attainment bars */}
+        <div style={CARD}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 16 }}>Atteinte Quotas</div>
+          <AttainmentBars data={attainmentData} />
+        </div>
+
+        {/* Top Performers */}
+        <div style={CARD}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 16 }}>Top Performers</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {topPerformers.map((m, i) => {
+              const medals = ["🥇", "🥈", "🥉"];
+              return (
+                <div key={m.id} style={{
+                  display: "flex", alignItems: "center", gap: 14,
+                  background: i === 0 ? "#fefce8" : "#f9fafb",
+                  border: `1px solid ${i === 0 ? "#fde68a" : "#f3f4f6"}`,
+                  borderRadius: 12, padding: "14px 16px",
+                }}>
+                  <span style={{ fontSize: 24 }}>{medals[i]}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{hideNames ? "•••••" : m.name}</div>
+                    <div style={{ fontSize: 12, color: "#9ca3af" }}>{m.role}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: attColor(m.att) }}>{pct(m.att)}</div>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>{fmtCurrencyR(m.commission, m.cur || "EUR")}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Quota distribution */}
+          <div style={{ marginTop: 20, padding: "14px 0 0", borderTop: "1px solid #f3f4f6" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af", marginBottom: 10 }}>Distribution</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[
+                { label: "≥ 100%", count: allIndividual.filter(m => m.att >= 1).length, bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" },
+                { label: "70–99%", count: allIndividual.filter(m => m.att >= 0.7 && m.att < 1).length, bg: "#fffbeb", color: "#d97706", border: "#fde68a" },
+                { label: "< 70%", count: allIndividual.filter(m => m.att < 0.7).length, bg: "#fef2f2", color: "#ef4444", border: "#fecaca" },
+              ].map((g, i) => (
+                <div key={i} style={{
+                  flex: 1, textAlign: "center", padding: "10px 8px",
+                  background: g.bg, border: `1px solid ${g.border}`, borderRadius: 10,
+                }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: g.color }}>{g.count}</div>
+                  <div style={{ fontSize: 11, color: g.color, fontWeight: 500 }}>{g.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3: Trend (if multi-month) */}
+      {trendData.length > 1 && (
+        <div style={{ ...CARD, marginBottom: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>Evolution des commissions totales</div>
+          <div style={{ fontSize: 11, color: "#d1d5db", marginBottom: 12 }}>Tous mois disponibles</div>
+          <BarChart data={trendData} width={900} height={220} barColor="#6366f1" />
+        </div>
+      )}
+
+      {/* Row 4: Role breakdown table */}
+      <div style={CARD}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 16 }}>Detail par role</div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={TH}>Role</th>
+              <th style={{ ...TH, textAlign: "right" }}>Membres</th>
+              <th style={{ ...TH, textAlign: "right" }}>Deals</th>
+              <th style={{ ...TH, textAlign: "right" }}>Atteinte moy.</th>
+              <th style={{ ...TH, textAlign: "right" }}>Total Commissions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              { role: "AE", color: PURPLE, mems: aeMembers.filter(m => !m.isTeamQuota) },
+              { role: "Head of Sales", color: "#6366f1", mems: aeMembers.filter(m => m.isTeamQuota) },
+              { role: "BDR", color: "#f59e0b", mems: bdrMembers },
+              { role: "PM", color: "#06b6d4", mems: pmMembers },
+            ].map((row, i) => {
+              const count = row.mems.length;
+              const deals = row.mems.reduce((s, m) => s + m.deals.length, 0);
+              const avgA = count > 0 ? row.mems.reduce((s, m) => s + m.att, 0) / count : 0;
+              const totalC = row.mems.reduce((s, m) => s + m.commission, 0);
+              return (
+                <tr key={i} onMouseEnter={e => e.currentTarget.style.background="#fafafa"} onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+                  <td style={{ ...TD, fontWeight: 600 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: row.color, display: "inline-block" }} />
+                      {row.role}
+                    </span>
+                  </td>
+                  <td style={{ ...TD, textAlign: "right" }}>{count}</td>
+                  <td style={{ ...TD, textAlign: "right" }}>{deals}</td>
+                  <td style={{ ...TD, textAlign: "right", color: attColor(avgA), fontWeight: 600 }}>{pct(avgA)}</td>
+                  <td style={{ ...TD, textAlign: "right", fontWeight: 700 }}>{eurR(totalC)}</td>
+                </tr>
+              );
+            })}
+            <tr style={{ background: "#fafafa" }}>
+              <td style={{ ...TD, fontWeight: 700, borderTop: "1px solid #e5e7eb", borderBottom: "none" }}>Total</td>
+              <td style={{ ...TD, textAlign: "right", fontWeight: 700, borderTop: "1px solid #e5e7eb", borderBottom: "none" }}>{allIndividual.length}</td>
+              <td style={{ ...TD, textAlign: "right", fontWeight: 700, borderTop: "1px solid #e5e7eb", borderBottom: "none" }}>{totalDeals}</td>
+              <td style={{ ...TD, textAlign: "right", fontWeight: 700, color: attColor(avgAtt), borderTop: "1px solid #e5e7eb", borderBottom: "none" }}>{pct(avgAtt)}</td>
+              <td style={{ ...TD, textAlign: "right", fontWeight: 700, borderTop: "1px solid #e5e7eb", borderBottom: "none" }}>{eurR(totalCommissions)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ──────────────────────────────────────────────────────────────────
 const now = new Date();
 
@@ -630,6 +1089,8 @@ export default function App() {
   const [lastRefresh, setLastRefresh]= useState(null);
   const [flashMsg,    setFlashMsg]   = useState(null);
   const [hideNames,   setHideNames]  = useState(false);
+  const [currentPage, setCurrentPage]= useState("commissions");
+  const [drawerOpen,  setDrawerOpen] = useState(false);
 
   if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />;
 
@@ -695,6 +1156,9 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: "#f5f5f7", color: "#111827", fontFamily: FONT }}>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
+      {/* Drawer */}
+      <Drawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} currentPage={currentPage} onNavigate={setCurrentPage} />
+
       {/* Header */}
       <div style={{
         background: "#fff", borderBottom: "1px solid #e5e7eb",
@@ -703,9 +1167,23 @@ export default function App() {
         boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 36, height: 36, background: PURPLE, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#fff", fontWeight: 700 }}>L</div>
+          <button
+            onClick={() => setDrawerOpen(true)}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 36, height: 36, background: "#fff", border: "1px solid #e5e7eb",
+              borderRadius: 10, cursor: "pointer", color: "#6b7280",
+              transition: "all 0.15s", boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = PURPLE; e.currentTarget.style.color = PURPLE; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.color = "#6b7280"; }}
+          >
+            <IconMenu />
+          </button>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: "#111827", letterSpacing: -0.3 }}>Commissions</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#111827", letterSpacing: -0.3 }}>
+              {currentPage === "commissions" ? "Commissions" : "Analytics"}
+            </div>
             <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 500 }}>Loyoly Sales</div>
           </div>
         </div>
@@ -758,6 +1236,17 @@ export default function App() {
         </div>
       </div>
 
+      {currentPage === "analytics" ? (
+        <AnalyticsPage
+          members={members}
+          salaryYear={salaryYear}
+          salaryMonth={salaryMonth}
+          mergedAeData={mergedAeData}
+          mergedBdrData={mergedBdrData}
+          mergedPmData={mergedPmData}
+          hideNames={hideNames}
+        />
+      ) : (
       <div style={{ padding: "28px 32px", maxWidth: 1020, margin: "0 auto" }}>
 
         {/* Period selector */}
@@ -840,6 +1329,7 @@ export default function App() {
           />
         )}
       </div>
+      )}
     </div>
   );
 }
