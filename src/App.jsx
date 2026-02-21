@@ -2,7 +2,7 @@ import { useState } from "react";
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────
 const PASSWORD = "loyoly2026";
-const SLACK_BOT_TOKEN = "xoxb-2276082916774-10540618038263-YPYKSjJ4RtyBOTGfevn3C038";
+
 const SLACK_TEST_USER = "U0287PVJ3FF"; // Joseph (pour les tests)
 
 const TEAM_CONFIG = [
@@ -411,21 +411,16 @@ export default function App() {
 
   const handleSend = async (target, previews) => {
     const msgs = target === "me"
-      ? previews.map(m => ({ ...m, slackId: SLACK_TEST_USER })) // tous envoyés à Joseph pour le test
-      : previews;
+      ? previews.map(m => ({ slackId: SLACK_TEST_USER, text: m.msg }))
+      : previews.map(m => ({ slackId: m.slackId, text: m.msg }));
 
-    for (const m of msgs) {
-      const res = await fetch("https://slack.com/api/chat.postMessage", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${SLACK_BOT_TOKEN}`,
-        },
-        body: JSON.stringify({ channel: m.slackId, text: m.msg }),
-      });
-      const json = await res.json();
-      if (!json.ok) throw new Error(`Slack: ${json.error}`);
-    }
+    const res = await fetch("/api/slack-send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: msgs }),
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || "Erreur envoi Slack");
     setSlackLog(prev => [...prev, { target, salLbl, sentAt: new Date().toLocaleTimeString("fr-FR") }]);
   };
 
