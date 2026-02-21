@@ -29,13 +29,13 @@ export default async function handler(req, res) {
         "Authorization": `Bearer ${token}`,
       },
       body: JSON.stringify({
-        filterGroups: [{
+        filterGroups: PM_IDS.map(id => ({
           filters: [
             { propertyName: "date_de_paiement", operator: "GTE", value: startDate },
             { propertyName: "date_de_paiement", operator: "LTE", value: endDate },
-            { propertyName: "genere_par__", operator: "IN", values: PM_IDS },
+            { propertyName: "genere_par__", operator: "EQ", value: id },
           ]
-        }],
+        })),
         properties: ["dealname", "amount", "date_de_paiement", "genere_par__"],
         limit: 100,
       }),
