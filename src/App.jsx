@@ -6,18 +6,18 @@ const SLACK_TEST_USER = "U0287PVJ3FF";
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
 const TEAM_CONFIG = [
-  { id: "matthew",  name: "Matthew",  fullName: "Matthew Langewiesche",  role: "AE",           quota: 5000,  annualVariable: 40000, ownerId: "1818638834", slackId: "U06H3BW72G5" },
-  { id: "alice",    name: "Alice",    fullName: "Alice Nageotte",         role: "AE",           quota: 5000,  annualVariable: 50000, ownerId: "2061466682", slackId: "U07EW7V3CPQ" },
-  { id: "francois", name: "François", fullName: "François Malo Jamin",    role: "AE",           quota: 5000,  annualVariable: 25000, ownerId: "32042772",   slackId: "U0AB464R2RK" },
-  { id: "raphael",  name: "Raphaël",  fullName: "Raphaël Angelitti",      role: "Head of Sales",quota: 15000, annualVariable: 40000, ownerId: "1002574007", slackId: "U07FFGM4TUZ", isTeamQuota: true },
+  { id: "matthew",  name: "Matthew",  fullName: "Matthew Langewiesche",  role: "AE",           quota: 5000,  annualVariable: 40000, fixedSalary: 50000,  ownerId: "1818638834", slackId: "U06H3BW72G5" },
+  { id: "alice",    name: "Alice",    fullName: "Alice Nageotte",         role: "AE",           quota: 5000,  annualVariable: 50000, fixedSalary: 50000,  ownerId: "2061466682", slackId: "U07EW7V3CPQ" },
+  { id: "francois", name: "François", fullName: "François Malo Jamin",    role: "AE",           quota: 5000,  annualVariable: 25000, fixedSalary: 42000,  ownerId: "32042772",   slackId: "U0AB464R2RK" },
+  { id: "raphael",  name: "Raphaël",  fullName: "Raphaël Angelitti",      role: "Head of Sales",quota: 15000, annualVariable: 40000, fixedSalary: 70000,  ownerId: "1002574007", slackId: "U07FFGM4TUZ", isTeamQuota: true },
   // BDRs
-  { id: "sacha",    name: "Sacha",    fullName: "Sacha Fernez",           role: "BDR",          quotaSQLs: 20, annualVariable: 15000, genereParId: "1919375613", slackId: "U07F2P5N5QB" },
-  { id: "emilio",   name: "Emilio",   fullName: "Emilio Sallier",         role: "BDR",          quotaSQLs: 10, annualVariable: 15000, genereParId: "30082998",   slackId: "U087CKD9VHU" },
-  { id: "oscar",    name: "Oscar",    fullName: "Oscar Mcdonald",         role: "BDR",          quotaSQLs: 20, annualVariable: 18000, genereParId: "29457764",   slackId: "U08U6SV2P9N" },
-  { id: "illan",    name: "Illan",    fullName: "Ilan Brillard",          role: "BDR",          quotaSQLs: 20, annualVariable: 12000, genereParId: "31730069",   slackId: "U0A7X8YD48Z" },
+  { id: "sacha",    name: "Sacha",    fullName: "Sacha Fernez",           role: "BDR",          quotaSQLs: 20, annualVariable: 15000, fixedSalary: 42000,  genereParId: "1919375613", slackId: "U07F2P5N5QB" },
+  { id: "emilio",   name: "Emilio",   fullName: "Emilio Sallier",         role: "BDR",          quotaSQLs: 10, annualVariable: 15000, fixedSalary: 32000,  genereParId: "30082998",   slackId: "U087CKD9VHU" },
+  { id: "oscar",    name: "Oscar",    fullName: "Oscar Mcdonald",         role: "BDR",          quotaSQLs: 20, annualVariable: 18000, fixedSalary: 32000,  genereParId: "29457764",   slackId: "U08U6SV2P9N" },
+  { id: "illan",    name: "Illan",    fullName: "Ilan Brillard",          role: "BDR",          quotaSQLs: 20, annualVariable: 12000, fixedSalary: 32000,  genereParId: "31730069",   slackId: "U0A7X8YD48Z" },
   // Partnership Managers
-  { id: "antoine",  name: "Antoine",  fullName: "Antoine Rivaud",         role: "PM",           quota: 3333,  annualVariable: 20000, genereParId: "1949410186", slackId: "U079LTGP5LY" },
-  { id: "giles",    name: "Giles",    fullName: "Giles Eida",             role: "PM",           quota: 11800, annualVariable: 40000, genereParId: "32259172",   slackId: "U0ADZ5AJ256", currency: "GBP" },
+  { id: "antoine",  name: "Antoine",  fullName: "Antoine Rivaud",         role: "PM",           quota: 3333,  annualVariable: 20000, fixedSalary: 55000,  genereParId: "1949410186", slackId: "U079LTGP5LY" },
+  { id: "giles",    name: "Giles",    fullName: "Giles Eida",             role: "PM",           quota: 11800, annualVariable: 40000, fixedSalary: 100000, genereParId: "32259172",   slackId: "U0ADZ5AJ256", currency: "GBP" },
 ];
 
 // ─── DONNÉES HUBSPOT (AE) ────────────────────────────────────────────────
@@ -52,8 +52,6 @@ const fmtCurrencyR = (n, currency = "EUR") => new Intl.NumberFormat(currency ===
 const eur2 = n => fmtCurrency(n, "EUR");
 const eurR = n => fmtCurrencyR(n, "EUR");
 const pct  = n => (n * 100).toFixed(1) + "%";
-
-const FIXED_SALARY = 50000; // Salaire fixe moyen annuel
 
 const PURPLE = "#7c3aed";
 const PURPLE_LIGHT = "#ede9fe";
@@ -846,17 +844,15 @@ function KpiCard({ label, value, sub, icon, color = PURPLE }) {
 }
 
 // ─── CSV EXPORT HELPER ───────────────────────────────────────────────────
-function exportCSV(members, salaryYear, salaryMonth) {
-  const salLbl = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
-  const payLbl = paymentLabel(salaryYear, salaryMonth);
+function exportCSV(members, salaryYear, periodLabel, filename) {
   const allIndividual = members.filter(m => !m.isTeamQuota);
 
   const rows = [
-    ["Nom", "Role", "Deals", "MRR / SQLs", "Atteinte", "Commission", "Devise", "Salaire", "Periode paiements"],
+    ["Nom", "Role", "Deals", "MRR / SQLs", "Atteinte", "Commission", "Devise", "Fixe Annuel", "Variable Annuel", "Periode"],
   ];
   allIndividual.forEach(m => {
     const cur = m.cur || "EUR";
-    const metric = m.role === "BDR" ? m.sqlCount : (m.mrr || 0).toFixed(2);
+    const metric = m.role === "BDR" ? (m.sqlCount || 0) : (m.mrr || 0).toFixed(2);
     rows.push([
       m.fullName || m.name,
       m.role,
@@ -865,8 +861,9 @@ function exportCSV(members, salaryYear, salaryMonth) {
       (m.att * 100).toFixed(1) + "%",
       m.commission.toFixed(2),
       cur,
-      salLbl,
-      payLbl,
+      String(m.fixedSalary || 0),
+      String(m.annualVariable || 0),
+      periodLabel,
     ]);
   });
   // Add team head
@@ -880,30 +877,86 @@ function exportCSV(members, salaryYear, salaryMonth) {
       (head.att * 100).toFixed(1) + "%",
       head.commission.toFixed(2),
       "EUR",
-      salLbl,
-      payLbl,
+      String(head.fixedSalary || 0),
+      String(head.annualVariable || 0),
+      periodLabel,
     ]);
   }
   // Total row
   const totalComm = members.reduce((s, m) => s + m.commission, 0);
-  rows.push(["TOTAL", "", String(allIndividual.reduce((s,m) => s + m.deals.length, 0)), "", "", totalComm.toFixed(2), "EUR", salLbl, payLbl]);
+  rows.push(["TOTAL", "", String(allIndividual.reduce((s,m) => s + m.deals.length, 0)), "", "", totalComm.toFixed(2), "", "", "", periodLabel]);
 
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `commissions_${salaryYear}_${String(salaryMonth).padStart(2,"0")}.csv`;
+  a.download = filename || `commissions_${salaryYear}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
 // ─── ANALYTICS PAGE ──────────────────────────────────────────────────────
-function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSalaryMonth, mergedAeData, mergedBdrData, mergedPmData, hideNames, onRefresh, refreshing }) {
-  const salLbl = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
-  const payLbl = paymentLabel(salaryYear, salaryMonth);
-
+function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData, mergedPmData, hideNames, onRefresh, refreshing }) {
+  const [selectedMonths, setSelectedMonths] = useState([new Date().getMonth() + 1]);
   const years = [2025, 2026, 2027];
+
+  const toggleMonth = (month) => {
+    setSelectedMonths(prev => {
+      if (prev.includes(month)) {
+        if (prev.length === 1) return prev; // keep at least one
+        return prev.filter(m => m !== month);
+      }
+      return [...prev, month].sort((a, b) => a - b);
+    });
+  };
+  const selectAll = () => setSelectedMonths([1,2,3,4,5,6,7,8,9,10,11,12]);
+  const nbMonths = selectedMonths.length;
+
+  // Aggregate data across selected months
+  const aggregated = useMemo(() => {
+    // For each selected salary month, compute members, then merge by id
+    const allMonthData = selectedMonths.map(sM => compute(salaryYear, sM, mergedAeData, mergedBdrData, mergedPmData));
+    // Merge: accumulate deals, mrr, sqlCount, commission per member across months
+    const merged = {};
+    TEAM_CONFIG.forEach(cfg => {
+      merged[cfg.id] = {
+        ...cfg,
+        deals: [],
+        mrr: 0,
+        sqlCount: 0,
+        commission: 0,
+        att: 0,
+        monthlyMax: cfg.annualVariable / 12,
+        cur: cfg.currency || "EUR",
+        hasData: false,
+      };
+    });
+    allMonthData.forEach(monthMembers => {
+      monthMembers.forEach(m => {
+        if (!merged[m.id]) return;
+        merged[m.id].deals = [...merged[m.id].deals, ...m.deals];
+        merged[m.id].mrr = (merged[m.id].mrr || 0) + (m.mrr || 0);
+        merged[m.id].sqlCount = (merged[m.id].sqlCount || 0) + (m.sqlCount || 0);
+        merged[m.id].commission += m.commission;
+        merged[m.id].att += m.att;
+        if (m.hasData) merged[m.id].hasData = true;
+      });
+    });
+    // Average attainment across months
+    Object.values(merged).forEach(m => {
+      m.att = nbMonths > 0 ? m.att / nbMonths : 0;
+    });
+    return Object.values(merged);
+  }, [selectedMonths, salaryYear, mergedAeData, mergedBdrData, mergedPmData, nbMonths]);
+
+  const members = aggregated;
+  const periodLabel = nbMonths === 1
+    ? `${MONTHS_FR[selectedMonths[0]-1]} ${salaryYear}`
+    : nbMonths === 12
+    ? `Annee ${salaryYear}`
+    : `${selectedMonths.map(m => MONTHS_FR[m-1].slice(0,3)).join(", ")} ${salaryYear}`;
+
   const aeMembers  = members.filter(m => m.role === "AE" || m.isTeamQuota);
   const bdrMembers = members.filter(m => m.role === "BDR");
   const pmMembers  = members.filter(m => m.role === "PM");
@@ -911,20 +964,19 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
 
   // KPI values
   const totalCommissions = allIndividual.reduce((s, m) => s + m.commission, 0);
-  const totalMRR         = members.filter(m => m.role === "AE").reduce((s, m) => s + m.mrr, 0);
+  const totalMRR         = members.filter(m => m.role === "AE").reduce((s, m) => s + (m.mrr || 0), 0);
   const totalPmMRR       = pmMembers.reduce((s, m) => s + (m.mrr || 0), 0);
   const avgAtt           = allIndividual.length > 0 ? allIndividual.reduce((s, m) => s + m.att, 0) / allIndividual.length : 0;
   const totalDeals       = allIndividual.reduce((s, m) => s + m.deals.length, 0);
   const aboveQuota       = allIndividual.filter(m => m.att >= 1).length;
 
-  // ROI calculation
-  // Cost = monthly share of (fixed salary + variable) for each member
-  const monthlyCostTotal = members.reduce((s, m) => s + (FIXED_SALARY + m.annualVariable) / 12, 0);
-  const monthlyVariableTotal = members.reduce((s, m) => s + m.annualVariable / 12, 0);
-  const monthlyFixedTotal = members.length * FIXED_SALARY / 12;
+  // ROI calculation — costs × number of months selected
+  const periodCostTotal = members.reduce((s, m) => s + ((m.fixedSalary || 0) + m.annualVariable) / 12, 0) * nbMonths;
+  const periodVariableTotal = members.reduce((s, m) => s + m.annualVariable / 12, 0) * nbMonths;
+  const periodFixedTotal = members.reduce((s, m) => s + (m.fixedSalary || 0) / 12, 0) * nbMonths;
   // Revenue = ARR closed = (AE MRR + PM MRR) × 12
   const arrClosed = (totalMRR + totalPmMRR) * 12;
-  const roi = monthlyCostTotal > 0 ? (arrClosed - monthlyCostTotal) / monthlyCostTotal : 0;
+  const roi = periodCostTotal > 0 ? (arrClosed - periodCostTotal) / periodCostTotal : 0;
   const roiColor = roi >= 2 ? "#059669" : roi >= 0 ? "#d97706" : "#ef4444";
   const roiBg = roi >= 2 ? "#ecfdf5" : roi >= 0 ? "#fffbeb" : "#fef2f2";
   const roiBorder = roi >= 2 ? "#a7f3d0" : roi >= 0 ? "#fde68a" : "#fecaca";
@@ -936,7 +988,7 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
     color: m.role === "AE" ? PURPLE : m.role === "BDR" ? "#f59e0b" : "#06b6d4",
   }));
 
-  // Attainment data
+  // Attainment data (avg across months)
   const attainmentData = allIndividual.map(m => ({
     label: hideNames ? "•••••" : m.name,
     value: m.att,
@@ -949,7 +1001,7 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
     { label: "PM", value: pmMembers.reduce((s, m) => s + m.deals.length, 0), color: "#06b6d4" },
   ];
 
-  // Multi-month trend data
+  // Multi-month trend data (always show all available months)
   const trendData = useMemo(() => {
     const allKeys = new Set([
       ...Object.keys(mergedAeData || {}),
@@ -959,7 +1011,6 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
     const sorted = [...allKeys].sort();
     return sorted.map(key => {
       const [tY, tM] = key.split("-").map(Number);
-      // Compute salary month from payment key: payment key = salary month - 1
       const sM = tM + 1 > 12 ? 1 : tM + 1;
       const sY = tM + 1 > 12 ? tY + 1 : tY;
       const mems = compute(sY, sM, mergedAeData, mergedBdrData, mergedPmData);
@@ -972,7 +1023,7 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
     });
   }, [mergedAeData, mergedBdrData, mergedPmData]);
 
-  // Top performers
+  // Top performers (by avg attainment)
   const topPerformers = [...allIndividual].sort((a, b) => b.att - a.att).slice(0, 3);
 
   const CARD = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: "22px 24px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" };
@@ -982,39 +1033,49 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
       {/* Toolbar: title + period selector + actions */}
       <div style={{
         background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16,
-        padding: "18px 24px", marginBottom: 20, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
+        padding: "18px 24px", marginBottom: 20,
         boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
       }}>
-        {/* Period selector */}
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>Salaire de</div>
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {MONTHS_FR.map((m, i) => {
-            const month = i + 1;
-            const isActive = month === salaryMonth;
-            return (
-              <button key={month} onClick={() => setSalaryMonth(month)} style={{
-                padding: "6px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer", fontFamily: FONT,
-                background: isActive ? PURPLE : "transparent",
-                border: isActive ? "none" : "1px solid #e5e7eb",
-                color: isActive ? "#fff" : "#9ca3af",
-                fontWeight: isActive ? 600 : 400, transition: "all 0.15s",
-                boxShadow: isActive ? `0 2px 8px ${PURPLE}30` : "none",
-              }}>
-                {m.slice(0,3)}
-              </button>
-            );
-          })}
-        </div>
-        <select value={salaryYear} onChange={e => setSalaryYear(+e.target.value)} style={{
-          background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8,
-          color: "#111827", padding: "7px 14px", fontSize: 14, fontFamily: FONT, cursor: "pointer",
-        }}>
-          {years.map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          {/* Period selector — multi-select */}
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>Periode</div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {MONTHS_FR.map((m, i) => {
+              const month = i + 1;
+              const isActive = selectedMonths.includes(month);
+              return (
+                <button key={month} onClick={() => toggleMonth(month)} style={{
+                  padding: "6px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer", fontFamily: FONT,
+                  background: isActive ? PURPLE : "transparent",
+                  border: isActive ? "none" : "1px solid #e5e7eb",
+                  color: isActive ? "#fff" : "#9ca3af",
+                  fontWeight: isActive ? 600 : 400, transition: "all 0.15s",
+                  boxShadow: isActive ? `0 2px 8px ${PURPLE}30` : "none",
+                }}>
+                  {m.slice(0,3)}
+                </button>
+              );
+            })}
+            <button onClick={selectAll} style={{
+              padding: "6px 12px", borderRadius: 20, fontSize: 11, cursor: "pointer", fontFamily: FONT,
+              background: nbMonths === 12 ? PURPLE_LIGHT : "transparent",
+              border: `1px solid ${nbMonths === 12 ? PURPLE_BORDER : "#e5e7eb"}`,
+              color: nbMonths === 12 ? PURPLE : "#9ca3af",
+              fontWeight: 600, transition: "all 0.15s", textTransform: "uppercase", letterSpacing: 0.5,
+            }}>
+              All
+            </button>
+          </div>
+          <select value={salaryYear} onChange={e => setSalaryYear(+e.target.value)} style={{
+            background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8,
+            color: "#111827", padding: "7px 14px", fontSize: 14, fontFamily: FONT, cursor: "pointer",
+          }}>
+            {years.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
 
-        {/* Right actions */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 12, color: "#d1d5db" }}>Paiements {payLbl}</span>
+          {/* Right actions */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: "#d1d5db" }}>{periodLabel}</span>
           {/* Refresh all */}
           <button onClick={onRefresh} disabled={refreshing} style={{
             display: "flex", alignItems: "center", gap: 6,
@@ -1032,7 +1093,7 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
             {refreshing ? "..." : "Refresh"}
           </button>
           {/* CSV Export */}
-          <button onClick={() => exportCSV(members, salaryYear, salaryMonth)} style={{
+          <button onClick={() => exportCSV(members, salaryYear, periodLabel, `commissions_${salaryYear}_${selectedMonths.join("-")}.csv`)} style={{
             display: "flex", alignItems: "center", gap: 6,
             padding: "8px 14px", background: PURPLE,
             border: "none", borderRadius: 10,
@@ -1049,6 +1110,7 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
             </svg>
             Export CSV
           </button>
+          </div>
         </div>
       </div>
 
@@ -1089,10 +1151,10 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
           </div>
           {/* Cost */}
           <div style={{ background: "#fff", borderRadius: 12, padding: "16px 18px", border: "1px solid #e5e7eb" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Cout Mensuel Equipe</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "#ef4444", letterSpacing: -0.5 }}>{eurR(monthlyCostTotal)}</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Cout Equipe ({nbMonths} mois)</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#ef4444", letterSpacing: -0.5 }}>{eurR(periodCostTotal)}</div>
             <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
-              Fixe {eurR(monthlyFixedTotal)} + Var. {eurR(monthlyVariableTotal)}
+              Fixe {eurR(periodFixedTotal)} + Var. {eurR(periodVariableTotal)}
             </div>
           </div>
           {/* ROI */}
@@ -1102,19 +1164,19 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
               {roi >= 0 ? "+" : ""}{(roi * 100).toFixed(0)}%
             </div>
             <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
-              {arrClosed > monthlyCostTotal ? `+${eurR(arrClosed - monthlyCostTotal)} net` : `${eurR(arrClosed - monthlyCostTotal)} net`}
+              {arrClosed > periodCostTotal ? `+${eurR(arrClosed - periodCostTotal)} net` : `${eurR(arrClosed - periodCostTotal)} net`}
             </div>
           </div>
         </div>
 
         {/* Per-member cost breakdown */}
         <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Detail par membre (cout mensuel)</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Detail par membre (cout sur {nbMonths} mois)</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
             {members.map(m => {
-              const monthlyCost = (FIXED_SALARY + m.annualVariable) / 12;
+              const periodCost = ((m.fixedSalary || 0) + m.annualVariable) / 12 * nbMonths;
               const mRevenue = (m.role === "BDR" || m.isTeamQuota) ? 0 : (m.mrr || 0) * 12;
-              const mRoi = monthlyCost > 0 ? (mRevenue - monthlyCost) / monthlyCost : 0;
+              const mRoi = periodCost > 0 ? (mRevenue - periodCost) / periodCost : 0;
               const mColor = mRoi >= 0 ? "#059669" : "#ef4444";
               return (
                 <div key={m.id} style={{
@@ -1123,7 +1185,7 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
                 }}>
                   <div style={{ fontWeight: 600, color: "#111827", marginBottom: 4 }}>{hideNames ? "•••••" : m.name}</div>
                   <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 2 }}>
-                    {eurR(monthlyCost)}/mois
+                    {eurR(periodCost)}{nbMonths === 1 ? "/mois" : ` (${nbMonths}m)`}
                   </div>
                   {(m.role !== "BDR" && !m.isTeamQuota) ? (
                     <div style={{ fontWeight: 700, color: mColor, fontSize: 13 }}>
@@ -1139,7 +1201,7 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSal
             })}
           </div>
           <div style={{ marginTop: 10, fontSize: 11, color: "#d1d5db", fontStyle: "italic" }}>
-            * Base sur un salaire fixe moyen de {eurR(FIXED_SALARY)}/an + variable individuel. ARR = MRR × 12. BDRs et Head of Sales marques "indirect/equipe" car leur impact est lie aux AEs.
+            * Salaires fixes individuels + variable. ARR = MRR cumule × 12. Cout = (fixe + variable) / 12 × {nbMonths} mois. BDRs et Head of Sales : impact indirect.
           </div>
         </div>
       </div>
@@ -1456,11 +1518,8 @@ export default function App() {
 
       {currentPage === "analytics" ? (
         <AnalyticsPage
-          members={members}
           salaryYear={salaryYear}
-          salaryMonth={salaryMonth}
           setSalaryYear={setSalaryYear}
-          setSalaryMonth={setSalaryMonth}
           mergedAeData={mergedAeData}
           mergedBdrData={mergedBdrData}
           mergedPmData={mergedPmData}
