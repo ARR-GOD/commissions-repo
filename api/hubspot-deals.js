@@ -33,12 +33,12 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         filterGroups: [{
           filters: [
-            { propertyName: "payment_received_date", operator: "GTE", value: String(start) },
-            { propertyName: "payment_received_date", operator: "LTE", value: String(end) },
+            { propertyName: "date_de_paiement", operator: "GTE", value: String(start) },
+            { propertyName: "date_de_paiement", operator: "LTE", value: String(end) },
             { propertyName: "hubspot_owner_id",      operator: "IN",  values: OWNER_IDS },
           ]
         }],
-        properties: ["dealname", "mrr", "payment_received_date", "hubspot_owner_id"],
+        properties: ["dealname", "mrr", "date_de_paiement", "hubspot_owner_id"],
         limit: 100,
       }),
     });
@@ -54,7 +54,7 @@ export default async function handler(req, res) {
       const memberId = TEAM_MAP[ownerId];
       if (!memberId) continue;
 
-      const dateMs = parseInt(deal.properties.payment_received_date);
+      const dateMs = parseInt(deal.properties.date_de_paiement);
       const date = new Date(dateMs);
       const dateStr = `${String(date.getDate()).padStart(2,"0")}/${String(date.getMonth()+1).padStart(2,"0")}/${date.getFullYear()}`;
 
