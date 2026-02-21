@@ -2,13 +2,14 @@ import { useState } from "react";
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────
 const PASSWORD = "loyoly2026";
-const SLACK_WEBHOOK = ""; // ← coller l'URL du webhook Slack ici pour activer l'envoi réel
+const SLACK_BOT_TOKEN = "xoxb-2276082916774-10540618038263-YPYKSjJ4RtyBOTGfevn3C038";
+const SLACK_TEST_USER = "U0287PVJ3FF"; // Joseph (pour les tests)
 
 const TEAM_CONFIG = [
-  { id: "matthew",  name: "Matthew",  fullName: "Matthew Langewiesche",  role: "AE",           quota: 5000,  annualVariable: 40000, ownerId: "1818638834", slackId: "UXXMATTHEW" },
-  { id: "alice",    name: "Alice",    fullName: "Alice Nageotte",         role: "AE",           quota: 5000,  annualVariable: 50000, ownerId: "2061466682", slackId: "UXXALICE"   },
-  { id: "francois", name: "François", fullName: "François Malo Jamin",    role: "AE",           quota: 5000,  annualVariable: 25000, ownerId: "32042772",   slackId: "UXXFRANCOIS"},
-  { id: "raphael",  name: "Raphaël",  fullName: "Raphaël Angelitti",      role: "Head of Sales",quota: 15000, annualVariable: 40000, ownerId: "1002574007", slackId: "UXXRAPHAEL", isTeamQuota: true },
+  { id: "matthew",  name: "Matthew",  fullName: "Matthew Langewiesche",  role: "AE",           quota: 5000,  annualVariable: 40000, ownerId: "1818638834", slackId: "U06H3BW72G5" },
+  { id: "alice",    name: "Alice",    fullName: "Alice Nageotte",         role: "AE",           quota: 5000,  annualVariable: 50000, ownerId: "2061466682", slackId: "U07EW7V3CPQ" },
+  { id: "francois", name: "François", fullName: "François Malo Jamin",    role: "AE",           quota: 5000,  annualVariable: 25000, ownerId: "32042772",   slackId: "U0AB464R2RK" },
+  { id: "raphael",  name: "Raphaël",  fullName: "Raphaël Angelitti",      role: "Head of Sales",quota: 15000, annualVariable: 40000, ownerId: "1002574007", slackId: "U07FFGM4TUZ", isTeamQuota: true },
 ];
 
 // ─── DONNÉES HUBSPOT ──────────────────────────────────────────────────────
@@ -336,11 +337,8 @@ function SlackModal({ members, salaryYear, salaryMonth, onClose, onSend }) {
           ))}
         </div>
 
-        {!SLACK_WEBHOOK && (
-          <div style={{ margin: "16px 24px 0", padding: "12px 16px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12, color: "#92400e" }}>
-            ⚠️ Webhook Slack non configuré — l'envoi est simulé. Pour activer l'envoi réel, ajoute l'URL du webhook dans App.jsx (variable SLACK_WEBHOOK).
-          </div>
-        )}
+
+
 
         <div style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
           {previews.map(m => (
@@ -412,21 +410,21 @@ export default function App() {
   };
 
   const handleSend = async (target, previews) => {
-    if (!SLACK_WEBHOOK) {
-      // Simulation si pas de webhook
-      await new Promise(r => setTimeout(r, 1000));
-      setSlackLog(prev => [...prev, { target, salLbl, sentAt: new Date().toLocaleTimeString("fr-FR") }]);
-      return;
-    }
-    // Envoi réel via webhook Slack
-    const msgs = target === "me" ? [previews[0]] : previews;
+    const msgs = target === "me"
+      ? previews.map(m => ({ ...m, slackId: SLACK_TEST_USER })) // tous envoyés à Joseph pour le test
+      : previews;
+
     for (const m of msgs) {
-      const res = await fetch(SLACK_WEBHOOK, {
+      const res = await fetch("https://slack.com/api/chat.postMessage", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: m.msg }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SLACK_BOT_TOKEN}`,
+        },
+        body: JSON.stringify({ channel: m.slackId, text: m.msg }),
       });
-      if (!res.ok) throw new Error(`Slack error ${res.status}`);
+      const json = await res.json();
+      if (!json.ok) throw new Error(`Slack: ${json.error}`);
     }
     setSlackLog(prev => [...prev, { target, salLbl, sentAt: new Date().toLocaleTimeString("fr-FR") }]);
   };
