@@ -843,11 +843,65 @@ function KpiCard({ label, value, sub, icon, color = PURPLE }) {
   );
 }
 
+// ─── CSV EXPORT HELPER ───────────────────────────────────────────────────
+function exportCSV(members, salaryYear, salaryMonth) {
+  const salLbl = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
+  const payLbl = paymentLabel(salaryYear, salaryMonth);
+  const allIndividual = members.filter(m => !m.isTeamQuota);
+
+  const rows = [
+    ["Nom", "Role", "Deals", "MRR / SQLs", "Atteinte", "Commission", "Devise", "Salaire", "Periode paiements"],
+  ];
+  allIndividual.forEach(m => {
+    const cur = m.cur || "EUR";
+    const metric = m.role === "BDR" ? m.sqlCount : (m.mrr || 0).toFixed(2);
+    rows.push([
+      m.fullName || m.name,
+      m.role,
+      String(m.deals.length),
+      String(metric),
+      (m.att * 100).toFixed(1) + "%",
+      m.commission.toFixed(2),
+      cur,
+      salLbl,
+      payLbl,
+    ]);
+  });
+  // Add team head
+  const head = members.find(m => m.isTeamQuota);
+  if (head) {
+    rows.push([
+      head.fullName || head.name,
+      head.role,
+      "-",
+      (head.mrr || 0).toFixed(2),
+      (head.att * 100).toFixed(1) + "%",
+      head.commission.toFixed(2),
+      "EUR",
+      salLbl,
+      payLbl,
+    ]);
+  }
+  // Total row
+  const totalComm = members.reduce((s, m) => s + m.commission, 0);
+  rows.push(["TOTAL", "", String(allIndividual.reduce((s,m) => s + m.deals.length, 0)), "", "", totalComm.toFixed(2), "EUR", salLbl, payLbl]);
+
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `commissions_${salaryYear}_${String(salaryMonth).padStart(2,"0")}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ─── ANALYTICS PAGE ──────────────────────────────────────────────────────
-function AnalyticsPage({ members, salaryYear, salaryMonth, mergedAeData, mergedBdrData, mergedPmData, hideNames }) {
+function AnalyticsPage({ members, salaryYear, salaryMonth, setSalaryYear, setSalaryMonth, mergedAeData, mergedBdrData, mergedPmData, hideNames, onRefresh, refreshing }) {
   const salLbl = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
   const payLbl = paymentLabel(salaryYear, salaryMonth);
 
+  const years = [2025, 2026, 2027];
   const aeMembers  = members.filter(m => m.role === "AE" || m.isTeamQuota);
   const bdrMembers = members.filter(m => m.role === "BDR");
   const pmMembers  = members.filter(m => m.role === "PM");
@@ -910,11 +964,76 @@ function AnalyticsPage({ members, salaryYear, salaryMonth, mergedAeData, mergedB
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1020, margin: "0 auto" }}>
-      {/* Title */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color: "#111827", letterSpacing: -0.5 }}>Analytics</div>
-        <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 4 }}>
-          Salaire de {salLbl} · Paiements {payLbl}
+      {/* Toolbar: title + period selector + actions */}
+      <div style={{
+        background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16,
+        padding: "18px 24px", marginBottom: 20, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      }}>
+        {/* Period selector */}
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>Salaire de</div>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {MONTHS_FR.map((m, i) => {
+            const month = i + 1;
+            const isActive = month === salaryMonth;
+            return (
+              <button key={month} onClick={() => setSalaryMonth(month)} style={{
+                padding: "6px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer", fontFamily: FONT,
+                background: isActive ? PURPLE : "transparent",
+                border: isActive ? "none" : "1px solid #e5e7eb",
+                color: isActive ? "#fff" : "#9ca3af",
+                fontWeight: isActive ? 600 : 400, transition: "all 0.15s",
+                boxShadow: isActive ? `0 2px 8px ${PURPLE}30` : "none",
+              }}>
+                {m.slice(0,3)}
+              </button>
+            );
+          })}
+        </div>
+        <select value={salaryYear} onChange={e => setSalaryYear(+e.target.value)} style={{
+          background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8,
+          color: "#111827", padding: "7px 14px", fontSize: 14, fontFamily: FONT, cursor: "pointer",
+        }}>
+          {years.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+
+        {/* Right actions */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, color: "#d1d5db" }}>Paiements {payLbl}</span>
+          {/* Refresh all */}
+          <button onClick={onRefresh} disabled={refreshing} style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "8px 14px", background: "#fff",
+            border: "1px solid #e5e7eb", borderRadius: 10,
+            color: refreshing ? "#d1d5db" : "#374151", fontSize: 13,
+            cursor: refreshing ? "not-allowed" : "pointer",
+            fontFamily: FONT, fontWeight: 500,
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={e => { if (!refreshing) e.currentTarget.style.borderColor = PURPLE; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; }}
+          >
+            <span style={{ display: "inline-block", animation: refreshing ? "spin 1s linear infinite" : "none", fontSize: 14 }}>&#x21bb;</span>
+            {refreshing ? "..." : "Refresh"}
+          </button>
+          {/* CSV Export */}
+          <button onClick={() => exportCSV(members, salaryYear, salaryMonth)} style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "8px 14px", background: PURPLE,
+            border: "none", borderRadius: 10,
+            color: "#fff", fontSize: 13,
+            cursor: "pointer", fontFamily: FONT, fontWeight: 600,
+            transition: "all 0.15s",
+            boxShadow: `0 2px 8px ${PURPLE}30`,
+          }}
+          onMouseDown={e => { e.currentTarget.style.transform = "scale(0.97)"; }}
+          onMouseUp={e => { e.currentTarget.style.transform = "scale(1)"; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export CSV
+          </button>
         </div>
       </div>
 
@@ -1241,10 +1360,14 @@ export default function App() {
           members={members}
           salaryYear={salaryYear}
           salaryMonth={salaryMonth}
+          setSalaryYear={setSalaryYear}
+          setSalaryMonth={setSalaryMonth}
           mergedAeData={mergedAeData}
           mergedBdrData={mergedBdrData}
           mergedPmData={mergedPmData}
           hideNames={hideNames}
+          onRefresh={handleRefresh}
+          refreshing={refreshing}
         />
       ) : (
       <div style={{ padding: "28px 32px", maxWidth: 1020, margin: "0 auto" }}>
