@@ -191,15 +191,14 @@ async function fetchBdrDeals(payYear, payMonth) {
 // ─── HUBSPOT FETCH (PM) ─────────────────────────────────────────────────
 
 async function fetchPmDeals(payYear, payMonth) {
-  const start = `${payYear}-${padMonth(payMonth)}-01`;
-  const lastDay = new Date(payYear, payMonth, 0).getDate();
-  const end = `${payYear}-${padMonth(payMonth)}-${lastDay}`;
+  const start = new Date(payYear, payMonth - 1, 1).getTime();
+  const end   = new Date(payYear, payMonth, 0, 23, 59, 59).getTime();
 
   const body = {
     filterGroups: Object.keys(PM_MAP).map(id => ({
       filters: [
-        { propertyName: 'date_de_paiement', operator: 'GTE', value: start },
-        { propertyName: 'date_de_paiement', operator: 'LTE', value: end },
+        { propertyName: 'date_de_paiement', operator: 'GTE', value: String(start) },
+        { propertyName: 'date_de_paiement', operator: 'LTE', value: String(end) },
         { propertyName: 'genere_par__', operator: 'EQ', value: id },
       ]
     })),
