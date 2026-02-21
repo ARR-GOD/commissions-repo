@@ -54,9 +54,9 @@ function paymentLabel(salaryYear, salaryMonth) {
   return `${MONTHS_FR[m-1]} ${y}`;
 }
 
-function compute(salaryYear, salaryMonth) {
+function compute(salaryYear, salaryMonth, data = HUBSPOT_DATA) {
   const key = paymentKey(salaryYear, salaryMonth);
-  const raw = HUBSPOT_DATA[key];
+  const raw = data[key];
   return TEAM_CONFIG.map(cfg => {
     const rawMember = raw?.members.find(m => m.id === cfg.id);
     const deals = rawMember?.deals || [];
@@ -383,6 +383,7 @@ const now = new Date();
 
 export default function App() {
   const [loggedIn,    setLoggedIn]   = useState(false);
+  const [liveData,    setLiveData]   = useState({});
   const [salaryMonth, setSalaryMonth]= useState(now.getMonth() + 1);
   const [salaryYear,  setSalaryYear] = useState(now.getFullYear());
   const [showSlack,   setShowSlack]  = useState(false);
@@ -393,8 +394,9 @@ export default function App() {
 
   if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />;
 
-  const members   = compute(salaryYear, salaryMonth);
-  const hasData   = !!HUBSPOT_DATA[paymentKey(salaryYear, salaryMonth)];
+  const mergedData = { ...HUBSPOT_DATA, ...liveData };
+  const members   = compute(salaryYear, salaryMonth, mergedData);
+  const hasData   = !!(mergedData)[paymentKey(salaryYear, salaryMonth)];
   const aeMembers = members.filter(m => !m.isTeamQuota);
   const payLbl    = paymentLabel(salaryYear, salaryMonth);
   const salLbl    = `${MONTHS_FR[salaryMonth-1]} ${salaryYear}`;
@@ -402,11 +404,20 @@ export default function App() {
   const handleRefresh = async () => {
     setRefreshing(true);
     setFlashMsg(null);
-    await new Promise(r => setTimeout(r, 1200));
+    try {
+      const key = paymentKey(salaryYear, salaryMonth);
+      const [payYear, payMonth] = key.split("-").map(Number);
+      const res = await fetch(`/api/hubspot-deals?year=${payYear}&month=${payMonth}`);
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || "Erreur HubSpot");
+      setLiveData(prev => ({ ...prev, [key]: { members: Object.entries(json.members).map(([id, deals]) => ({ id, deals })) } }));
+      setLastRefresh(new Date());
+      setFlashMsg(`✓ Données à jour · ${payLbl}`);
+    } catch(e) {
+      setFlashMsg(`⚠ ${e.message}`);
+    }
     setRefreshing(false);
-    setLastRefresh(new Date());
-    setFlashMsg(hasData ? `✓ Données à jour · ${payLbl}` : `⚠ Aucune donnée pour ${payLbl} — demande à Claude`);
-    setTimeout(() => setFlashMsg(null), 4000);
+    setTimeout(() => setFlashMsg(null), 5000);
   };
 
   const handleSend = async (target, previews) => {
