@@ -63,6 +63,20 @@ const attBorder = n => n >= 1 ? "#a7f3d0" : n >= 0.7 ? "#fde68a" : "#fecaca";
 
 const MONTHS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
+// Eye icons (SVG paths)
+const EyeOpen = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+const EyeClosed = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+    <line x1="1" y1="1" x2="23" y2="23"/>
+  </svg>
+);
+
 function paymentKey(salaryYear, salaryMonth) {
   let y = salaryYear, m = salaryMonth - 1;
   if (m === 0) { m = 12; y -= 1; }
@@ -219,7 +233,7 @@ function LoginScreen({ onLogin }) {
 }
 
 // ─── MEMBER CARD ──────────────────────────────────────────────────────────
-function MemberCard({ member }) {
+function MemberCard({ member, hideNames }) {
   const color  = attColor(member.att);
   const bg     = attBg(member.att);
   const border = attBorder(member.att);
@@ -241,7 +255,7 @@ function MemberCard({ member }) {
             <div style={{ fontSize: 11, fontWeight: 600, color: PURPLE, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>{member.role}</div>
             {cur === "GBP" && <div style={{ fontSize: 10, fontWeight: 600, color: "#6b7280", background: "#f3f4f6", padding: "1px 6px", borderRadius: 4, marginBottom: 4 }}>GBP</div>}
           </div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", letterSpacing: -0.3 }}>{member.name}</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", letterSpacing: -0.3 }}>{hideNames ? "•••••" : member.name}</div>
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 28, fontWeight: 700, color: "#111827", lineHeight: 1, letterSpacing: -0.5 }}>{fmtCurrencyR(member.commission, cur)}</div>
@@ -273,17 +287,18 @@ function MemberCard({ member }) {
 const TH = { padding: "12px 18px", textAlign: "left", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#9ca3af", fontWeight: 600, borderBottom: "1px solid #f3f4f6", whiteSpace: "nowrap", background: "#fafafa" };
 const TD = { padding: "12px 18px", fontSize: 14, color: "#374151", borderBottom: "1px solid #f9fafb", verticalAlign: "middle" };
 
-function DealsTable({ members }) {
+function DealsTable({ members, hideNames }) {
   const aeMembers   = members.filter(m => m.role === "AE");
   const bdrMembers  = members.filter(m => m.role === "BDR");
   const pmMembers   = members.filter(m => m.role === "PM");
   const headOfSales = members.find(m => m.isTeamQuota);
 
+  const mask = (name) => hideNames ? "•••••" : name;
   const tabs = [
-    ...aeMembers.map(m => ({ id: m.id, label: m.name, type: "ae", member: m })),
-    { id: "raphael", label: "Raphaël", type: "team", member: headOfSales, aeMembers },
-    ...bdrMembers.map(m => ({ id: m.id, label: m.name, type: "bdr", member: m })),
-    ...pmMembers.map(m => ({ id: m.id, label: m.name, type: "pm", member: m })),
+    ...aeMembers.map(m => ({ id: m.id, label: mask(m.name), type: "ae", member: m })),
+    { id: "raphael", label: mask("Raphaël"), type: "team", member: headOfSales, aeMembers },
+    ...bdrMembers.map(m => ({ id: m.id, label: mask(m.name), type: "bdr", member: m })),
+    ...pmMembers.map(m => ({ id: m.id, label: mask(m.name), type: "pm", member: m })),
   ];
   const [activeTab, setActiveTab] = useState(tabs[0]?.id);
   const active = tabs.find(t => t.id === activeTab) || tabs[0];
@@ -385,7 +400,7 @@ function DealsTable({ members }) {
             <>
               {active.aeMembers.map((m,i) => (
                 <tr key={i} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                  <td style={{...TD,color:"#111827",fontWeight:500}}>{m.name}</td>
+                  <td style={{...TD,color:"#111827",fontWeight:500}}>{hideNames ? "•••••" : m.name}</td>
                   <td style={{...TD,color:"#6b7280"}}>{m.deals.length} deal{m.deals.length>1?"s":""}</td>
                   <td style={{...TD,textAlign:"right",color:"#059669",fontWeight:600}}>{eur2(m.mrr)}</td>
                   <td style={{...TD,textAlign:"right",color:attColor(m.att)}}>{pct(m.att)}</td>
@@ -406,7 +421,7 @@ function DealsTable({ members }) {
 }
 
 // ─── PAYFIT BLOCK ─────────────────────────────────────────────────────────
-function PayfitBlock({ members }) {
+function PayfitBlock({ members, hideNames }) {
   const [copied, setCopied] = useState(false);
   const text = members.map(m => `${m.name} : ${fmtCurrencyR(m.commission, m.cur || "EUR")}`).join("\n");
   return (
@@ -424,7 +439,7 @@ function PayfitBlock({ members }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         {members.map(m => (
           <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 10, padding: "14px 16px" }}>
-            <span style={{ fontSize: 14, color: "#6b7280" }}>{m.name}</span>
+            <span style={{ fontSize: 14, color: "#6b7280" }}>{hideNames ? "•••••" : m.name}</span>
             <span style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>{fmtCurrencyR(m.commission, m.cur || "EUR")}</span>
           </div>
         ))}
@@ -434,7 +449,7 @@ function PayfitBlock({ members }) {
 }
 
 // ─── SLACK SECTION (per-rep) ──────────────────────────────────────────────
-function SlackSection({ members, salaryYear, salaryMonth, onSendOne }) {
+function SlackSection({ members, salaryYear, salaryMonth, onSendOne, hideNames }) {
   const aeMembers = members.filter(m => m.role === "AE");
   const previews = members.map(m => ({
     ...m,
@@ -454,7 +469,7 @@ function SlackSection({ members, salaryYear, salaryMonth, onSendOne }) {
       <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Account Executives</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {aePreviews.map(m => (
-          <SlackCard key={m.id} member={m} onSendOne={onSendOne} />
+          <SlackCard key={m.id} member={m} onSendOne={onSendOne} hideNames={hideNames} />
         ))}
       </div>
       {/* BDRs */}
@@ -463,7 +478,7 @@ function SlackSection({ members, salaryYear, salaryMonth, onSendOne }) {
           <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, marginTop: 20 }}>BDRs</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {bdrPreviews.map(m => (
-              <SlackCard key={m.id} member={m} onSendOne={onSendOne} />
+              <SlackCard key={m.id} member={m} onSendOne={onSendOne} hideNames={hideNames} />
             ))}
           </div>
         </>
@@ -474,7 +489,7 @@ function SlackSection({ members, salaryYear, salaryMonth, onSendOne }) {
           <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, marginTop: 20 }}>Partnership Managers</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {pmPreviews.map(m => (
-              <SlackCard key={m.id} member={m} onSendOne={onSendOne} />
+              <SlackCard key={m.id} member={m} onSendOne={onSendOne} hideNames={hideNames} />
             ))}
           </div>
         </>
@@ -483,7 +498,7 @@ function SlackSection({ members, salaryYear, salaryMonth, onSendOne }) {
   );
 }
 
-function SlackCard({ member, onSendOne }) {
+function SlackCard({ member, onSendOne, hideNames }) {
   const [expanded, setExpanded] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(null); // null | "team" | "test"
@@ -522,10 +537,10 @@ function SlackCard({ member, onSendOne }) {
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 14, fontWeight: 700, color: PURPLE,
           }}>
-            {member.name.charAt(0)}
+            {hideNames ? "?" : member.name.charAt(0)}
           </div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{member.name}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{hideNames ? "•••••" : member.name}</div>
             <div style={{ fontSize: 12, color: "#9ca3af" }}>{member.role}</div>
           </div>
         </div>
@@ -591,7 +606,7 @@ function SlackCard({ member, onSendOne }) {
                 boxShadow: `0 2px 8px ${PURPLE}30`,
               }}
             >
-              {sending ? "Envoi..." : `Envoyer a ${member.name}`}
+              {sending ? "Envoi..." : `Envoyer a ${hideNames ? "•••••" : member.name}`}
             </button>
           </div>
         </div>
@@ -614,6 +629,7 @@ export default function App() {
   const [refreshing,  setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh]= useState(null);
   const [flashMsg,    setFlashMsg]   = useState(null);
+  const [hideNames,   setHideNames]  = useState(false);
 
   if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />;
 
@@ -709,6 +725,20 @@ export default function App() {
               {slackLog.slice(-3).map((l,i) => <div key={i}>Slack {l.target === "test" ? "test" : l.name} · {l.sentAt}</div>)}
             </div>
           )}
+          <button
+            onClick={() => setHideNames(!hideNames)}
+            title={hideNames ? "Afficher les noms" : "Masquer les noms"}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 38, height: 38, background: hideNames ? PURPLE_LIGHT : "#fff",
+              border: `1px solid ${hideNames ? PURPLE_BORDER : "#e5e7eb"}`, borderRadius: 10,
+              color: hideNames ? PURPLE : "#9ca3af", cursor: "pointer",
+              transition: "all 0.15s",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+            }}
+          >
+            {hideNames ? <EyeClosed /> : <EyeOpen />}
+          </button>
           <button onClick={handleRefresh} disabled={refreshing} style={{
             display: "flex", alignItems: "center", gap: 8,
             padding: "9px 18px", background: "#fff",
@@ -776,27 +806,27 @@ export default function App() {
         {/* AE Cards */}
         <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Account Executives</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          {aeMembers.map(m => <MemberCard key={m.id} member={m} />)}
+          {aeMembers.map(m => <MemberCard key={m.id} member={m} hideNames={hideNames} />)}
         </div>
 
         {/* BDR Cards */}
         <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10, marginTop: 24 }}>BDRs</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          {bdrMembers.map(m => <MemberCard key={m.id} member={m} />)}
+          {bdrMembers.map(m => <MemberCard key={m.id} member={m} hideNames={hideNames} />)}
         </div>
 
         {/* PM Cards */}
         <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10, marginTop: 24 }}>Partnership Managers</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          {pmMembers.map(m => <MemberCard key={m.id} member={m} />)}
+          {pmMembers.map(m => <MemberCard key={m.id} member={m} hideNames={hideNames} />)}
         </div>
 
         {/* Deals Table */}
-        <DealsTable members={members} />
+        <DealsTable members={members} hideNames={hideNames} />
 
         {/* Payfit */}
         <div style={{ marginTop: 20 }}>
-          <PayfitBlock members={members} />
+          <PayfitBlock members={members} hideNames={hideNames} />
         </div>
 
         {/* Slack - per rep */}
@@ -806,6 +836,7 @@ export default function App() {
             salaryYear={salaryYear}
             salaryMonth={salaryMonth}
             onSendOne={handleSendOne}
+            hideNames={hideNames}
           />
         )}
       </div>
