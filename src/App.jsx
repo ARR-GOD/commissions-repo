@@ -974,8 +974,8 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
   const periodCostTotal = members.reduce((s, m) => s + ((m.fixedSalary || 0) + m.annualVariable) / 12, 0) * nbMonths;
   const periodVariableTotal = members.reduce((s, m) => s + m.annualVariable / 12, 0) * nbMonths;
   const periodFixedTotal = members.reduce((s, m) => s + (m.fixedSalary || 0) / 12, 0) * nbMonths;
-  // Revenue = ARR closed = (AE MRR + PM MRR) × 12
-  const arrClosed = (totalMRR + totalPmMRR) * 12;
+  // Revenue = ARR closed by AEs only (PM MRR is already included in AE MRR — PMs generate, AEs close)
+  const arrClosed = totalMRR * 12;
   const roi = periodCostTotal > 0 ? (arrClosed - periodCostTotal) / periodCostTotal : 0;
   const roiColor = roi >= 2 ? "#059669" : roi >= 0 ? "#d97706" : "#ef4444";
   const roiBg = roi >= 2 ? "#ecfdf5" : roi >= 0 ? "#fffbeb" : "#fef2f2";
@@ -1143,10 +1143,10 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
           {/* Revenue */}
           <div style={{ background: "#fff", borderRadius: 12, padding: "16px 18px", border: "1px solid #e5e7eb" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>ARR Close (AE + PM)</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>ARR Close (AE)</div>
             <div style={{ fontSize: 24, fontWeight: 700, color: "#059669", letterSpacing: -0.5 }}>{eurR(arrClosed)}</div>
             <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
-              ({eurR(totalMRR)} AE + {eurR(totalPmMRR)} PM) × 12
+              {eurR(totalMRR)} MRR × 12
             </div>
           </div>
           {/* Cost */}
@@ -1175,7 +1175,7 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
             {members.map(m => {
               const periodCost = ((m.fixedSalary || 0) + m.annualVariable) / 12 * nbMonths;
-              const mRevenue = (m.role === "BDR" || m.isTeamQuota) ? 0 : (m.mrr || 0) * 12;
+              const mRevenue = (m.role === "AE" && !m.isTeamQuota) ? (m.mrr || 0) * 12 : 0;
               const mRoi = periodCost > 0 ? (mRevenue - periodCost) / periodCost : 0;
               const mColor = mRoi >= 0 ? "#059669" : "#ef4444";
               return (
@@ -1187,13 +1187,13 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
                   <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 2 }}>
                     {eurR(periodCost)}{nbMonths === 1 ? "/mois" : ` (${nbMonths}m)`}
                   </div>
-                  {(m.role !== "BDR" && !m.isTeamQuota) ? (
+                  {(m.role === "AE" && !m.isTeamQuota) ? (
                     <div style={{ fontWeight: 700, color: mColor, fontSize: 13 }}>
                       {mRoi >= 0 ? "+" : ""}{(mRoi * 100).toFixed(0)}%
                     </div>
                   ) : (
                     <div style={{ fontWeight: 500, color: "#d1d5db", fontSize: 11, fontStyle: "italic" }}>
-                      {m.role === "BDR" ? "Indirect" : "Equipe"}
+                      {m.isTeamQuota ? "Equipe" : m.role === "PM" ? "Via AE" : "Indirect"}
                     </div>
                   )}
                 </div>
@@ -1201,7 +1201,7 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
             })}
           </div>
           <div style={{ marginTop: 10, fontSize: 11, color: "#d1d5db", fontStyle: "italic" }}>
-            * Salaires fixes individuels + variable. ARR = MRR cumule × 12. Cout = (fixe + variable) / 12 × {nbMonths} mois. BDRs et Head of Sales : impact indirect.
+            * Salaires fixes individuels + variable. ARR = MRR AE × 12 (le MRR PM est deja inclus dans le MRR AE car close par eux). Cout = (fixe + variable) / 12 × {nbMonths} mois.
           </div>
         </div>
       </div>
