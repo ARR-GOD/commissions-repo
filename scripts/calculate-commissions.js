@@ -24,6 +24,17 @@ const BDR_MAP = {
   '31730069':   'illan',
 };
 
+// ─── CONFIGURATION PM ───────────────────────────────────────────────────
+const PM_TEAM = [
+  { id: 'antoine', genereParId: '1949410186' },
+  { id: 'giles',   genereParId: '32259172'   },
+];
+
+const PM_MAP = {
+  '1949410186': 'antoine',
+  '32259172':   'giles',
+};
+
 // ─── HELPERS DATE ────────────────────────────────────────────────────────
 
 function isWeekend(date) {
@@ -177,6 +188,66 @@ async function fetchBdrDeals(payYear, payMonth) {
   }));
 }
 
+// ─── HUBSPOT FETCH (PM) ─────────────────────────────────────────────────
+
+async function fetchPmDeals(payYear, payMonth) {
+  const start = `${payYear}-${padMonth(payMonth)}-01`;
+  const lastDay = new Date(payYear, payMonth, 0).getDate();
+  const end = `${payYear}-${padMonth(payMonth)}-${lastDay}`;
+
+  const body = {
+    filterGroups: [{
+      filters: [
+        { propertyName: 'date_de_paiement', operator: 'GTE', value: start },
+        { propertyName: 'date_de_paiement', operator: 'LTE', value: end },
+        { propertyName: 'genere_par__', operator: 'IN', values: Object.keys(PM_MAP) },
+      ]
+    }],
+    properties: ['dealname', 'amount', 'date_de_paiement', 'genere_par__'],
+    limit: 100,
+  };
+
+  const res = await fetch('https://api.hubapi.com/crm/v3/objects/deals/search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.HUBSPOT_TOKEN}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`HubSpot PM error: ${res.status} — ${err}`);
+  }
+
+  const data = await res.json();
+
+  // Group by PM member
+  const members = Object.fromEntries(PM_TEAM.map(p => [p.id, []]));
+
+  for (const deal of (data.results || [])) {
+    const genPar = deal.properties.genere_par__;
+    const memberId = PM_MAP[genPar];
+    if (!memberId) continue;
+
+    const rawDate = deal.properties.date_de_paiement || '';
+    const [y, m, d] = rawDate.split('-');
+    const dateStr = d && m && y ? `${d}/${m}/${y}` : '—';
+
+    members[memberId].push({
+      name: deal.properties.dealname.trim(),
+      amount: parseFloat(deal.properties.amount) || 0,
+      date: dateStr,
+    });
+  }
+
+  return PM_TEAM.map(p => ({
+    id: p.id,
+    deals: members[p.id],
+  }));
+}
+
 // ─── UPDATE App.jsx ───────────────────────────────────────────────────────
 
 function buildAeDataEntry(members, key) {
@@ -199,7 +270,17 @@ function buildBdrDataEntry(members, key) {
   return `  "${key}": {\n    members: [\n${lines.join(',\n')},\n    ]\n  }`;
 }
 
-function updateAppJsx(newKey, aeMembersData, bdrMembersData) {
+function buildPmDataEntry(members, key) {
+  const lines = members.map(m => {
+    const dealsStr = m.deals.length === 0
+      ? '[]'
+      : `[${m.deals.map(d => `{ name: "${d.name}", amount: ${d.amount.toFixed(2)}, date: "${d.date}" }`).join(', ')}]`;
+    return `      { id: "${m.id}", deals: ${dealsStr} }`;
+  });
+  return `  "${key}": {\n    members: [\n${lines.join(',\n')},\n    ]\n  }`;
+}
+
+function updateAppJsx(newKey, aeMembersData, bdrMembersData, pmMembersData) {
   const appPath = 'src/App.jsx';
   let content = fs.readFileSync(appPath, 'utf8');
 
@@ -247,8 +328,32 @@ function updateAppJsx(newKey, aeMembersData, bdrMembersData) {
     );
   }
 
+  // ─── Update HUBSPOT_PM_DATA ───
+  const pmEntry = buildPmDataEntry(pmMembersData, newKey);
+  const pmKeyPattern = new RegExp(`  "${newKey}": \\{[\\s\\S]*?\\n  \\}`, 'm');
+
+  if (content.includes('const HUBSPOT_PM_DATA = {};')) {
+    content = content.replace(
+      'const HUBSPOT_PM_DATA = {};',
+      `const HUBSPOT_PM_DATA = {\n${pmEntry},\n};`
+    );
+  } else if (pmKeyPattern.test(content)) {
+    const pmStart = content.indexOf('const HUBSPOT_PM_DATA = {');
+    if (pmStart !== -1) {
+      const pmEnd = content.indexOf('};', pmStart) + 2;
+      let pmSection = content.substring(pmStart, pmEnd);
+      pmSection = pmSection.replace(pmKeyPattern, pmEntry);
+      content = content.substring(0, pmStart) + pmSection + content.substring(pmEnd);
+    }
+  } else {
+    content = content.replace(
+      /(const HUBSPOT_PM_DATA = \{[\s\S]*?)(};)\n\n\/\/ ─── HELPERS/,
+      `$1${pmEntry},\n};\n\n// ─── HELPERS`
+    );
+  }
+
   fs.writeFileSync(appPath, content, 'utf8');
-  console.log(`✅ App.jsx mis à jour avec la clé ${newKey} (AE + BDR)`);
+  console.log(`✅ App.jsx mis à jour avec la clé ${newKey} (AE + BDR + PM)`);
 }
 
 // ─── GITHUB OUTPUTS ──────────────────────────────────────────────────────
@@ -318,8 +423,16 @@ async function main() {
     console.log(`  → ${m.id}: ${m.deals.length} SQL(s)`);
   }
 
+  // ─── Fetch PM deals ───
+  console.log('\n📊 PM Deals :');
+  const pmMembersData = await fetchPmDeals(payYear, payMonth);
+  for (const m of pmMembersData) {
+    const total = m.deals.reduce((s, d) => s + d.amount, 0);
+    console.log(`  → ${m.id}: ${m.deals.length} deal(s) — ${total.toFixed(2)} €`);
+  }
+
   // Mise à jour App.jsx
-  updateAppJsx(payKey, aeMembersData, bdrMembersData);
+  updateAppJsx(payKey, aeMembersData, bdrMembersData, pmMembersData);
 
   // Outputs pour GitHub Actions
   setOutput('should_update', 'true');
