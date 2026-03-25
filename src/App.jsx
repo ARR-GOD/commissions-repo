@@ -6,18 +6,21 @@ const SLACK_TEST_USER = "U0287PVJ3FF";
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
 const TEAM_CONFIG = [
+  // AEs
   { id: "matthew",  name: "Matthew",  fullName: "Matthew Langewiesche",  role: "AE",           quota: 5000,  annualVariable: 40000, fixedSalary: 50000,  ownerId: "1818638834", slackId: "U06H3BW72G5" },
   { id: "alice",    name: "Alice",    fullName: "Alice Nageotte",         role: "AE",           quota: 5000,  annualVariable: 50000, fixedSalary: 50000,  ownerId: "2061466682", slackId: "U07EW7V3CPQ" },
   { id: "francois", name: "François", fullName: "François Malo Jamin",    role: "AE",           quota: 5000,  annualVariable: 25000, fixedSalary: 42000,  ownerId: "32042772",   slackId: "U0AB464R2RK" },
+  { id: "andrea",   name: "Andrea",   fullName: "Andrea Navarro",         role: "AE",           quota: 5000,  annualVariable: 50000, fixedSalary: 63000,  ownerId: "TODO",       slackId: "TODO", active: false },
+  // Head of Sales
   { id: "raphael",  name: "Raphaël",  fullName: "Raphaël Angelitti",      role: "Head of Sales",quota: 15000, annualVariable: 40000, fixedSalary: 70000,  ownerId: "1002574007", slackId: "U07FFGM4TUZ", isTeamQuota: true },
   // BDRs
-  { id: "sacha",    name: "Sacha",    fullName: "Sacha Fernez",           role: "BDR",          quotaSQLs: 20, annualVariable: 15000, fixedSalary: 42000,  genereParId: "1919375613", slackId: "U07F2P5N5QB" },
-  { id: "emilio",   name: "Emilio",   fullName: "Emilio Sallier",         role: "BDR",          quotaSQLs: 10, annualVariable: 15000, fixedSalary: 32000,  genereParId: "30082998",   slackId: "U087CKD9VHU" },
-  { id: "oscar",    name: "Oscar",    fullName: "Oscar Mcdonald",         role: "BDR",          quotaSQLs: 20, annualVariable: 18000, fixedSalary: 32000,  genereParId: "29457764",   slackId: "U08U6SV2P9N" },
-  { id: "illan",    name: "Illan",    fullName: "Ilan Brillard",          role: "BDR",          quotaSQLs: 20, annualVariable: 12000, fixedSalary: 32000,  genereParId: "31730069",   slackId: "U0A7X8YD48Z" },
+  { id: "sacha",    name: "Sacha",    fullName: "Sacha Fernez",           role: "BDR",          quotaSQLs: 20, annualVariable: 15000, fixedSalary: 40000,  genereParId: "1919375613", slackId: "U07F2P5N5QB" },
+  { id: "emilio",   name: "Emilio",   fullName: "Emilio Sallier",         role: "BDR",          quotaSQLs: 10, annualVariable: 15000, fixedSalary: 18000,  genereParId: "30082998",   slackId: "U087CKD9VHU" },
+  { id: "oscar",    name: "Oscar",    fullName: "Oscar Mcdonald",         role: "BDR",          quotaSQLs: 20, annualVariable: 12000, fixedSalary: 38000,  genereParId: "29457764",   slackId: "U08U6SV2P9N" },
+  { id: "illan",    name: "Illan",    fullName: "Ilan Brillard",          role: "BDR",          quotaSQLs: 20, annualVariable: 12000, fixedSalary: 12000,  genereParId: "31730069",   slackId: "U0A7X8YD48Z" },
   // Partnership Managers
-  { id: "antoine",  name: "Antoine",  fullName: "Antoine Rivaud",         role: "PM",           quota: 3333,  annualVariable: 20000, fixedSalary: 55000,  genereParId: "1949410186", slackId: "U079LTGP5LY" },
-  { id: "giles",    name: "Giles",    fullName: "Giles Eida",             role: "PM",           quota: 11800, annualVariable: 40000, fixedSalary: 100000, genereParId: "32259172",   slackId: "U0ADZ5AJ256", currency: "GBP" },
+  { id: "antoine",  name: "Antoine",  fullName: "Antoine Rivaud",         role: "PM",           quota: 3333,  annualVariable: 25000, fixedSalary: 65000,  genereParId: "1949410186", slackId: "U079LTGP5LY" },
+  { id: "giles",    name: "Giles",    fullName: "Giles Eida",             role: "PM",           quota: 11666, annualVariable: 48000, fixedSalary: 100000, genereParId: "32259172",   slackId: "U0ADZ5AJ256", currency: "GBP" },
 ];
 
 // ─── DONNÉES HUBSPOT (AE) ────────────────────────────────────────────────
@@ -95,16 +98,17 @@ function compute(salaryYear, salaryMonth, aeData = HUBSPOT_DATA, bdrData = HUBSP
   const rawBDR = bdrData[key];
   const rawPM  = pmData[key];
 
-  return TEAM_CONFIG.map(cfg => {
+  return TEAM_CONFIG.filter(cfg => cfg.active !== false).map(cfg => {
     const monthlyMax = cfg.annualVariable / 12;
-    const cur = cfg.currency || "EUR";
+    const cur = "EUR";
+    const fixedCur = cfg.currency || "EUR";
 
     if (cfg.role === "BDR") {
       const rawMember = rawBDR?.members?.find(m => m.id === cfg.id);
       const deals = rawMember?.deals || [];
       const sqlCount = deals.length;
       const att = sqlCount / cfg.quotaSQLs;
-      return { ...cfg, deals, sqlCount, monthlyMax, att, commission: att * monthlyMax, hasData: !!rawBDR, cur };
+      return { ...cfg, deals, sqlCount, monthlyMax, att, commission: att * monthlyMax, hasData: !!rawBDR, cur, fixedCur };
     }
 
     if (cfg.role === "PM") {
@@ -112,14 +116,14 @@ function compute(salaryYear, salaryMonth, aeData = HUBSPOT_DATA, bdrData = HUBSP
       const deals = rawMember?.deals || [];
       const mrr = deals.reduce((s, d) => s + d.amount, 0);
       const att = mrr / cfg.quota;
-      return { ...cfg, deals, mrr, monthlyMax, att, commission: att * monthlyMax, hasData: !!rawPM, cur };
+      return { ...cfg, deals, mrr, monthlyMax, att, commission: att * monthlyMax, hasData: !!rawPM, cur, fixedCur };
     }
 
     // AE or Head of Sales
     const rawMember = rawAE?.members?.find(m => m.id === cfg.id);
     const deals = rawMember?.deals || [];
     const mrr = deals.reduce((s, d) => s + d.amount, 0);
-    return { ...cfg, deals, mrr, monthlyMax, att: 0, commission: 0, hasData: !!rawAE, cur };
+    return { ...cfg, deals, mrr, monthlyMax, att: 0, commission: 0, hasData: !!rawAE, cur, fixedCur };
   }).map((m, _, arr) => {
     if (m.role === "BDR" || m.role === "PM") return m; // already computed
     if (!m.isTeamQuota) {
@@ -996,7 +1000,7 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
     const allMonthData = selectedMonths.map(sM => compute(salaryYear, sM, mergedAeData, mergedBdrData, mergedPmData));
     // Merge: accumulate deals, mrr, sqlCount, commission per member across months
     const merged = {};
-    TEAM_CONFIG.forEach(cfg => {
+    TEAM_CONFIG.filter(cfg => cfg.active !== false).forEach(cfg => {
       merged[cfg.id] = {
         ...cfg,
         deals: [],
@@ -1005,7 +1009,8 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
         commission: 0,
         att: 0,
         monthlyMax: cfg.annualVariable / 12,
-        cur: cfg.currency || "EUR",
+        cur: "EUR",
+        fixedCur: cfg.currency || "EUR",
         hasData: false,
       };
     });
@@ -1144,7 +1149,7 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
   // Closed Won aggregated for selected months
   const closedWonAggregated = useMemo(() => {
     const result = {};
-    TEAM_CONFIG.filter(c => c.role === "AE" && !c.isTeamQuota).forEach(cfg => {
+    TEAM_CONFIG.filter(c => c.role === "AE" && !c.isTeamQuota && c.active !== false).forEach(cfg => {
       result[cfg.id] = { ...cfg, deals: [], mrr: 0 };
     });
     selectedMonths.forEach(sM => {
@@ -1170,7 +1175,7 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
   // ─── Churn / Retention data (AE only — negative amount deals) ─────────
   const churnAggregated = useMemo(() => {
     const result = {};
-    TEAM_CONFIG.filter(c => c.role === "AE" && !c.isTeamQuota).forEach(cfg => {
+    TEAM_CONFIG.filter(c => c.role === "AE" && !c.isTeamQuota && c.active !== false).forEach(cfg => {
       result[cfg.id] = { ...cfg, deals: [], churnAmount: 0 };
     });
     selectedMonths.forEach(sM => {
