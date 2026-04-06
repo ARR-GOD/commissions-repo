@@ -4,13 +4,18 @@ export default async function handler(req, res) {
   const token = process.env.HUBSPOT_TOKEN;
   if (!token) return res.status(500).json({ error: "HUBSPOT_TOKEN not configured" });
 
-  const { year, month } = req.query; // ex: ?year=2026&month=2
+  const { year, month, cms, country } = req.query; // ex: ?year=2026&month=2&cms=Shopify&country=fr
   if (!year || !month) return res.status(400).json({ error: "year and month required" });
 
   // Calcul de la plage de dates : 1er au dernier jour du mois
   const y = parseInt(year), m = parseInt(month);
   const start = new Date(y, m - 1, 1).getTime();
   const end   = new Date(y, m, 0, 23, 59, 59).getTime();
+
+  // Optional CMS/country filters
+  const extraFilters = [];
+  if (cms) extraFilters.push({ propertyName: "company_cms", operator: "IN", values: cms.split(",") });
+  if (country) extraFilters.push({ propertyName: "code_pays_region", operator: "IN", values: country.split(",") });
 
   // Owner IDs de l'équipe
   const OWNER_IDS = ["1818638834", "2061466682", "32042772", "1002574007"];
@@ -36,9 +41,10 @@ export default async function handler(req, res) {
             { propertyName: "date_de_paiement", operator: "GTE", value: String(start) },
             { propertyName: "date_de_paiement", operator: "LTE", value: String(end) },
             { propertyName: "hubspot_owner_id",      operator: "IN",  values: OWNER_IDS },
+            ...extraFilters,
           ]
         }],
-        properties: ["dealname", "amount", "date_de_paiement", "hubspot_owner_id"],
+        properties: ["dealname", "amount", "date_de_paiement", "hubspot_owner_id", "company_cms", "code_pays_region"],
         limit: 100,
       }),
     });

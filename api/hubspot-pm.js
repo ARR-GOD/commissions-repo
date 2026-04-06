@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   const token = process.env.HUBSPOT_TOKEN;
   if (!token) return res.status(500).json({ error: "HUBSPOT_TOKEN not configured" });
 
-  const { year, month } = req.query;
+  const { year, month, cms, country } = req.query;
   if (!year || !month) return res.status(400).json({ error: "year and month required" });
 
   // PM IDs (valeurs de la propriété genere_par__)
@@ -21,6 +21,11 @@ export default async function handler(req, res) {
     const start = new Date(y, m - 1, 1).getTime();
     const end   = new Date(y, m, 0, 23, 59, 59).getTime();
 
+    // Optional CMS/country filters
+    const extraFilters = [];
+    if (cms) extraFilters.push({ propertyName: "company_cms", operator: "IN", values: cms.split(",") });
+    if (country) extraFilters.push({ propertyName: "code_pays_region", operator: "IN", values: country.split(",") });
+
     const searchRes = await fetch("https://api.hubapi.com/crm/v3/objects/deals/search", {
       method: "POST",
       headers: {
@@ -33,9 +38,10 @@ export default async function handler(req, res) {
             { propertyName: "date_de_paiement", operator: "GTE", value: String(start) },
             { propertyName: "date_de_paiement", operator: "LTE", value: String(end) },
             { propertyName: "genere_par__", operator: "EQ", value: id },
+            ...extraFilters,
           ]
         })),
-        properties: ["dealname", "amount", "date_de_paiement", "genere_par__"],
+        properties: ["dealname", "amount", "date_de_paiement", "genere_par__", "company_cms", "code_pays_region"],
         limit: 100,
       }),
     });

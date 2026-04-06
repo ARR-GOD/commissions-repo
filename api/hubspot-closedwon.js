@@ -4,13 +4,18 @@ export default async function handler(req, res) {
   const token = process.env.HUBSPOT_TOKEN;
   if (!token) return res.status(500).json({ error: "HUBSPOT_TOKEN not configured" });
 
-  const { year, month } = req.query;
+  const { year, month, cms, country } = req.query;
   if (!year || !month) return res.status(400).json({ error: "year and month required" });
 
   // Range: deals whose closedate falls in the given month AND are closed won
   const y = parseInt(year), m = parseInt(month);
   const start = new Date(y, m - 1, 1).getTime();
   const end   = new Date(y, m, 0, 23, 59, 59).getTime();
+
+  // Optional CMS/country filters
+  const extraFilters = [];
+  if (cms) extraFilters.push({ propertyName: "company_cms", operator: "IN", values: cms.split(",") });
+  if (country) extraFilters.push({ propertyName: "code_pays_region", operator: "IN", values: country.split(",") });
 
   // AE Owner IDs
   const OWNER_IDS = ["1818638834", "2061466682", "32042772", "1002574007"];
@@ -40,9 +45,10 @@ export default async function handler(req, res) {
               { propertyName: "closedate", operator: "LTE", value: String(end) },
               { propertyName: "hs_is_closed_won", operator: "EQ", value: "true" },
               { propertyName: "hubspot_owner_id", operator: "IN", values: OWNER_IDS },
+              ...extraFilters,
             ]
           }],
-          properties: ["dealname", "amount", "closedate", "hubspot_owner_id", "hs_is_closed_won"],
+          properties: ["dealname", "amount", "closedate", "hubspot_owner_id", "hs_is_closed_won", "company_cms", "code_pays_region"],
           limit: 100,
           after,
         }),
