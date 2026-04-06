@@ -66,6 +66,15 @@ const attBorder = n => n >= 1 ? "#a7f3d0" : n >= 0.7 ? "#fde68a" : "#fecaca";
 
 const MONTHS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
+const CMS_OPTIONS = ["Shopify", "Prestashop", "Shopify Plus"];
+const COUNTRY_OPTIONS = [
+  { value: "fr", label: "FR" },
+  { value: "uk", label: "UK" },
+  { value: "de", label: "DE" },
+  { value: "es", label: "ES" },
+  { value: "us", label: "US" },
+];
+
 // Eye icons (SVG paths)
 const EyeOpen = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -924,6 +933,71 @@ function LineChart({ series, labels, width = 900, height = 280, legendPosition =
   );
 }
 
+// ─── FILTER BAR ─────────────────────────────────────────────────────────
+function FilterBar({ filterCms, setFilterCms, filterCountry, setFilterCountry }) {
+  const toggleCms = (val) => {
+    setFilterCms(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
+  };
+  const toggleCountry = (val) => {
+    setFilterCountry(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
+  };
+
+  const pillStyle = (active) => ({
+    padding: "5px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer", fontFamily: FONT,
+    background: active ? PURPLE : "transparent",
+    border: active ? "none" : "1px solid #e5e7eb",
+    color: active ? "#fff" : "#9ca3af",
+    fontWeight: active ? 600 : 400, transition: "all 0.15s",
+    boxShadow: active ? `0 2px 8px ${PURPLE}30` : "none",
+  });
+
+  const allStyle = (active) => ({
+    padding: "5px 10px", borderRadius: 20, fontSize: 11, cursor: "pointer", fontFamily: FONT,
+    background: active ? PURPLE_LIGHT : "transparent",
+    border: `1px solid ${active ? PURPLE_BORDER : "#e5e7eb"}`,
+    color: active ? PURPLE : "#9ca3af",
+    fontWeight: 600, transition: "all 0.15s", textTransform: "uppercase", letterSpacing: 0.5,
+  });
+
+  return (
+    <div style={{
+      background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16,
+      padding: "14px 24px", marginBottom: 14,
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap",
+    }}>
+      {/* CMS */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1 }}>CMS</div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button onClick={() => setFilterCms([])} style={allStyle(filterCms.length === 0)}>Tous</button>
+          {CMS_OPTIONS.map(opt => (
+            <button key={opt} onClick={() => toggleCms(opt)} style={pillStyle(filterCms.includes(opt))}>{opt}</button>
+          ))}
+        </div>
+      </div>
+      {/* Separator */}
+      <div style={{ width: 1, height: 24, background: "#e5e7eb" }} />
+      {/* Country */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1 }}>Pays</div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button onClick={() => setFilterCountry([])} style={allStyle(filterCountry.length === 0)}>Tous</button>
+          {COUNTRY_OPTIONS.map(opt => (
+            <button key={opt.value} onClick={() => toggleCountry(opt.value)} style={pillStyle(filterCountry.includes(opt.value))}>{opt.label}</button>
+          ))}
+        </div>
+      </div>
+      {/* Active filter indicator */}
+      {(filterCms.length > 0 || filterCountry.length > 0) && (
+        <div style={{ marginLeft: "auto", fontSize: 11, color: "#d97706", fontWeight: 500, background: "#fffbeb", padding: "4px 12px", borderRadius: 20, border: "1px solid #fde68a" }}>
+          Filtres actifs — Actualiser
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── CSV EXPORT HELPER ───────────────────────────────────────────────────
 function exportCSV(members, salaryYear, periodLabel, filename) {
   const allIndividual = members.filter(m => !m.isTeamQuota);
@@ -978,7 +1052,7 @@ function exportCSV(members, salaryYear, periodLabel, filename) {
 }
 
 // ─── ANALYTICS PAGE ──────────────────────────────────────────────────────
-function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData, mergedPmData, closedWonData = {}, churnData = {}, hideNames, onRefresh, refreshing }) {
+function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData, mergedPmData, closedWonData = {}, churnData = {}, hideNames, onRefresh, refreshing, filterCms = [], setFilterCms, filterCountry = [], setFilterCountry }) {
   const [selectedMonths, setSelectedMonths] = useState([new Date().getMonth() + 1]);
   const years = [2025, 2026, 2027];
 
@@ -1289,6 +1363,9 @@ function AnalyticsPage({ salaryYear, setSalaryYear, mergedAeData, mergedBdrData,
           </div>
         </div>
       </div>
+
+      {/* Filters */}
+      {setFilterCms && <FilterBar filterCms={filterCms} setFilterCms={setFilterCms} filterCountry={filterCountry} setFilterCountry={setFilterCountry} />}
 
       {/* KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 14 }}>
@@ -1662,12 +1739,15 @@ export default function App() {
   const [hideNames,   setHideNames]  = useState(false);
   const [currentPage, setCurrentPage]= useState("commissions");
   const [drawerOpen,  setDrawerOpen] = useState(false);
+  const [filterCms,   setFilterCms]  = useState([]);
+  const [filterCountry, setFilterCountry] = useState([]);
 
   if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />;
 
-  const mergedAeData  = { ...HUBSPOT_DATA, ...liveData };
-  const mergedBdrData = { ...HUBSPOT_BDR_DATA, ...liveBdrData };
-  const mergedPmData  = { ...HUBSPOT_PM_DATA, ...livePmData };
+  const hasFilters = filterCms.length > 0 || filterCountry.length > 0;
+  const mergedAeData  = hasFilters ? liveData : { ...HUBSPOT_DATA, ...liveData };
+  const mergedBdrData = hasFilters ? liveBdrData : { ...HUBSPOT_BDR_DATA, ...liveBdrData };
+  const mergedPmData  = hasFilters ? livePmData : { ...HUBSPOT_PM_DATA, ...livePmData };
   const members    = compute(salaryYear, salaryMonth, mergedAeData, mergedBdrData, mergedPmData);
   const aeMembers  = members.filter(m => m.role === "AE" || m.isTeamQuota);
   const bdrMembers = members.filter(m => m.role === "BDR");
@@ -1686,12 +1766,17 @@ export default function App() {
       const key = paymentKey(salaryYear, salaryMonth);
       const [payYear, payMonth] = key.split("-").map(Number);
 
+      const fp = [];
+      if (filterCms.length > 0) fp.push(`cms=${encodeURIComponent(filterCms.join(","))}`);
+      if (filterCountry.length > 0) fp.push(`country=${filterCountry.join(",")}`);
+      const fqs = fp.length > 0 ? "&" + fp.join("&") : "";
+
       const [aeRes, bdrRes, pmRes, cwRes, churnRes] = await Promise.all([
-        fetch(`/api/hubspot-deals?year=${payYear}&month=${payMonth}`),
-        fetch(`/api/hubspot-bdr?year=${payYear}&month=${payMonth}`),
-        fetch(`/api/hubspot-pm?year=${payYear}&month=${payMonth}`),
-        fetch(`/api/hubspot-closedwon?year=${payYear}&month=${payMonth}`),
-        fetch(`/api/hubspot-churn?year=${payYear}&month=${payMonth}`),
+        fetch(`/api/hubspot-deals?year=${payYear}&month=${payMonth}${fqs}`),
+        fetch(`/api/hubspot-bdr?year=${payYear}&month=${payMonth}${fqs}`),
+        fetch(`/api/hubspot-pm?year=${payYear}&month=${payMonth}${fqs}`),
+        fetch(`/api/hubspot-closedwon?year=${payYear}&month=${payMonth}${fqs}`),
+        fetch(`/api/hubspot-churn?year=${payYear}&month=${payMonth}${fqs}`),
       ]);
       const [aeJson, bdrJson, pmJson, cwJson, churnJson] = await Promise.all([aeRes.json(), bdrRes.json(), pmRes.json(), cwRes.json(), churnRes.json()]);
 
@@ -1823,6 +1908,10 @@ export default function App() {
           hideNames={hideNames}
           onRefresh={handleRefresh}
           refreshing={refreshing}
+          filterCms={filterCms}
+          setFilterCms={setFilterCms}
+          filterCountry={filterCountry}
+          setFilterCountry={setFilterCountry}
         />
       ) : (
       <div style={{ padding: "28px 32px", maxWidth: 1020, margin: "0 auto" }}>
@@ -1869,6 +1958,9 @@ export default function App() {
             )}
           </div>
         </div>
+
+        {/* Filters */}
+        <FilterBar filterCms={filterCms} setFilterCms={setFilterCms} filterCountry={filterCountry} setFilterCountry={setFilterCountry} />
 
         {/* AE Cards */}
         <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Account Executives</div>

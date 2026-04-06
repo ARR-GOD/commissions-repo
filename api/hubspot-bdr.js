@@ -4,13 +4,18 @@ export default async function handler(req, res) {
   const token = process.env.HUBSPOT_TOKEN;
   if (!token) return res.status(500).json({ error: "HUBSPOT_TOKEN not configured" });
 
-  const { year, month } = req.query;
+  const { year, month, cms, country } = req.query;
   if (!year || !month) return res.status(400).json({ error: "year and month required" });
 
   // Plage de dates : 1er au dernier jour du mois
   const y = parseInt(year), m = parseInt(month);
   const start = new Date(y, m - 1, 1).getTime();
   const end   = new Date(y, m, 0, 23, 59, 59).getTime();
+
+  // Optional CMS/country filters
+  const extraFilters = [];
+  if (cms) extraFilters.push({ propertyName: "company_cms", operator: "IN", values: cms.split(",") });
+  if (country) extraFilters.push({ propertyName: "code_pays_region", operator: "IN", values: country.split(",") });
 
   // BDR IDs (valeurs de la propriété genere_par__)
   const BDR_IDS = ["1919375613", "30082998", "29457764", "31730069"];
@@ -36,9 +41,10 @@ export default async function handler(req, res) {
             { propertyName: "hs_v2_date_entered_presentationscheduled", operator: "GTE", value: String(start) },
             { propertyName: "hs_v2_date_entered_presentationscheduled", operator: "LTE", value: String(end) },
             { propertyName: "genere_par__", operator: "IN", values: BDR_IDS },
+            ...extraFilters,
           ]
         }],
-        properties: ["dealname", "genere_par__", "hs_v2_date_entered_presentationscheduled"],
+        properties: ["dealname", "genere_par__", "hs_v2_date_entered_presentationscheduled", "company_cms", "code_pays_region"],
         limit: 100,
       }),
     });
